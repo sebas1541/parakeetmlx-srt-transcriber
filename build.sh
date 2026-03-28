@@ -93,20 +93,28 @@ if [[ -d "$APP_PATH" ]]; then
     echo "    NOTE: vtool not found — skipping macOS 26 window corner patch."
   fi
 
-  # ── Create DMG installer ─────────────────────────────────────────────────────
+  # ── Create styled DMG installer ───────────────────────────────────────────────
   DMG_PATH="dist/${APP_NAME}.dmg"
+  rm -f "$DMG_PATH"
   echo ">>> Creating DMG installer…"
-  TMP_DMG_DIR=$(mktemp -d)
-  cp -r "$APP_PATH" "$TMP_DMG_DIR/"
-  ln -s /Applications "$TMP_DMG_DIR/Applications"
-  hdiutil create \
-    -volname "${APP_NAME}" \
-    -srcfolder "$TMP_DMG_DIR" \
-    -ov -format UDZO \
-    "$DMG_PATH" &>/dev/null \
-    && echo "    Done → $DMG_PATH" \
-    || echo "    WARNING: DMG creation failed (non-fatal)."
-  rm -rf "$TMP_DMG_DIR"
+  if command -v create-dmg &>/dev/null; then
+    create-dmg \
+      --volname "${APP_NAME}" \
+      --volicon "icon.icns" \
+      --background "assets/dmg_background.png" \
+      --window-pos 200 140 \
+      --window-size 660 400 \
+      --icon-size 128 \
+      --icon "${APP_NAME}.app" 165 185 \
+      --hide-extension "${APP_NAME}.app" \
+      --app-drop-link 495 185 \
+      "$DMG_PATH" \
+      "$APP_PATH" &>/dev/null \
+      && echo "    Done → $DMG_PATH" \
+      || echo "    WARNING: DMG creation failed (non-fatal)."
+  else
+    echo "    NOTE: create-dmg not found, install with: brew install create-dmg"
+  fi
 
   echo ""
   echo "╔══════════════════════════════════════════════════════════════════════╗"
