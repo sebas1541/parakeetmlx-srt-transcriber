@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/icon.png" width="128" alt="Parakeet Transcriber icon" />
+</p>
+
 # Parakeet Transcriber
 
 A macOS desktop app that transcribes audio and video files into downloadable **SRT subtitle files**. Powered by [Parakeet TDT 0.6B v3](https://github.com/senstella/parakeet-mlx) — a state-of-the-art ASR model optimised for Apple Silicon via MLX.
