@@ -1,8 +1,8 @@
 # Parakeet Transcriber
 
-A native macOS desktop app that transcribes audio and video files into downloadable **SRT subtitle files**. Powered by [Parakeet TDT 0.6B v3](https://github.com/senstella/parakeet-mlx) — a state-of-the-art English ASR model optimised for Apple Silicon via MLX.
+A macOS desktop app that transcribes audio and video files into downloadable **SRT subtitle files**. Powered by [Parakeet TDT 0.6B v3](https://github.com/senstella/parakeet-mlx) — a state-of-the-art ASR model optimised for Apple Silicon via MLX.
 
-The app opens as a real Mac window (no browser, no terminal). Close the window and everything stops — server, model, all of it.
+Built as a **webview app**: native macOS window chrome (title bar, traffic lights, save dialogs) with the UI rendered inside WKWebView — the same engine Safari uses. Close the window and everything stops — server, model, all of it.
 
 ---
 
@@ -128,7 +128,12 @@ rm -rf build dist
 
 ```
 parakeet/
-├── app.py            # FastAPI server + pywebview window + transcription logic
+├── main.py           # Entry point — pywebview window + server startup
+├── server.py         # FastAPI routes
+├── transcribe.py     # Model loading, audio processing, SRT building
+├── jsapi.py          # Python methods exposed to the web page
+├── templates.py      # HTML for the main page and SRT viewer
+├── state.py          # Shared state (jobs, window reference)
 ├── requirements.txt  # Python dependencies
 ├── parakeet.spec     # PyInstaller spec (controls bundling)
 ├── build.sh          # One-command build script
