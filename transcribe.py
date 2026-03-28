@@ -104,6 +104,83 @@ def _to_wav(src: str, dst: str) -> None:
     )
 
 
+# ── Chunked transcription (avoids Metal buffer size limit on long files) ──────
+
+_CHUNK_SEC = 5 * 60  # 5-minute chunks
+
+
+class _Sentence:
+    """Lightweight sentence wrapper that supports timestamp offsetting."""
+    __slots__ = ("start", "end", "text", "tokens")
+
+    def __init__(self, start, end, text, tokens):
+        self.start  = start
+        self.end    = end
+        self.text   = text
+        self.tokens = tokens
+
+
+class _Token:
+    __slots__ = ("start", "end", "text")
+
+    def __init__(self, start, end, text):
+        self.start = start
+        self.end   = end
+        self.text  = text
+
+
+def _wav_duration(wav_path: str) -> float:
+    import wave as _wave
+    with _wave.open(wav_path, "rb") as wf:
+        return wf.getnframes() / wf.getframerate()
+
+
+def _transcribe_chunked(model, audio_path: str, job: dict) -> list:
+    """Transcribe in 5-minute chunks to stay within Metal's buffer limit."""
+    duration = _wav_duration(audio_path)
+
+    if duration <= _CHUNK_SEC:
+        job["status"]   = "Transcribing\u2026"
+        job["progress"] = None
+        return list(model.transcribe(audio_path).sentences)
+
+    ffmpeg    = _find_ffmpeg()
+    n_chunks  = int(duration / _CHUNK_SEC) + 1
+    sentences = []
+
+    for i in range(n_chunks):
+        offset = i * _CHUNK_SEC
+        if offset >= duration:
+            break
+
+        job["status"]   = "Transcribing\u2026"
+        job["progress"] = {"current": i + 1, "total": n_chunks}
+
+        chunk_tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        chunk_tmp.close()
+        try:
+            subprocess.run(
+                [ffmpeg, "-y", "-i", audio_path,
+                 "-ss", str(offset), "-t", str(_CHUNK_SEC),
+                 "-ac", "1", "-ar", "16000", chunk_tmp.name],
+                check=True, capture_output=True, timeout=120,
+            )
+            result = model.transcribe(chunk_tmp.name)
+            for sent in result.sentences:
+                tokens = [_Token(t.start + offset, t.end + offset, t.text)
+                          for t in sent.tokens]
+                sentences.append(_Sentence(
+                    sent.start + offset,
+                    sent.end   + offset,
+                    sent.text,
+                    tokens,
+                ))
+        finally:
+            os.unlink(chunk_tmp.name)
+
+    return sentences
+
+
 # ── Transcription worker ──────────────────────────────────────────────────────
 
 def transcribe_worker(job_id: str, src_path: str) -> None:
@@ -126,17 +203,16 @@ def transcribe_worker(job_id: str, src_path: str) -> None:
         else:
             audio_path = src_path
 
-        job["status"] = "Transcribing\u2026"
-        result = _model.transcribe(audio_path)
+        sentences = _transcribe_chunked(_model, audio_path, job)
 
-        if not result.sentences:
+        if not sentences:
             job["error"]  = "No speech detected in the file."
             job["status"] = "error"
             return
 
         job["status"]       = "Building SRT\u2026"
-        job["srt"]          = build_srt(result.sentences)
-        job["srt_subtitle"] = build_srt_subtitle(result.sentences)
+        job["srt"]          = build_srt(sentences)
+        job["srt_subtitle"] = build_srt_subtitle(sentences)
         job["status"]       = "done"
 
     except Exception as exc:

@@ -36,7 +36,7 @@ def build_server():
         tmp.close()
 
         job_id           = str(uuid.uuid4())
-        state.jobs[job_id] = {"status": "queued", "srt": None, "error": None}
+        state.jobs[job_id] = {"status": "queued", "srt": None, "error": None, "progress": None}
 
         threading.Thread(
             target=transcribe_worker,
@@ -51,7 +51,7 @@ def build_server():
         job = state.jobs.get(job_id)
         if not job:
             return JSONResponse({"status": "not_found"}, status_code=404)
-        return JSONResponse({"status": job["status"], "error": job.get("error")})
+        return JSONResponse({"status": job["status"], "error": job.get("error"), "progress": job.get("progress")})
 
     @api.get("/view/{job_id}", response_class=HTMLResponse)
     async def view(job_id: str):

@@ -316,7 +316,7 @@ MAIN_PAGE = """<!DOCTYPE html>
         </button>
 
         <!-- Status -->
-        <div id="status-area" class="hidden">
+        <div id="status-area" class="hidden flex flex-col gap-2">
           <div id="status-row" class="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-gl-bg border border-gl-border">
             <div id="status-spinner" class="hidden w-4 h-4 border-2 border-gl-border border-t-primary rounded-full animate-spin flex-shrink-0"></div>
             <svg id="status-check" class="hidden w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -325,7 +325,12 @@ MAIN_PAGE = """<!DOCTYPE html>
             <svg id="status-error-icon" class="hidden w-4 h-4 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
             </svg>
-            <p id="status-text" class="text-sm text-gl-muted"></p>
+            <p id="status-text" class="text-sm text-gl-muted flex-1"></p>
+            <span id="progress-label" class="hidden text-xs font-mono text-gl-muted"></span>
+          </div>
+          <!-- Progress bar (only shown for chunked/long files) -->
+          <div id="progress-bar-wrap" class="hidden h-1.5 rounded-full bg-gl-border overflow-hidden">
+            <div id="progress-bar" class="h-full bg-primary rounded-full transition-all duration-500" style="width:0%"></div>
           </div>
         </div>
 
@@ -456,12 +461,15 @@ MAIN_PAGE = """<!DOCTYPE html>
     }
 
     // ── Status helpers ──────────────────────────────────────────────────────
-    function setStatus(msg, state = 'loading') {
-      const area    = document.getElementById('status-area');
-      const spinner = document.getElementById('status-spinner');
-      const check   = document.getElementById('status-check');
-      const errIcon = document.getElementById('status-error-icon');
-      const text    = document.getElementById('status-text');
+    function setStatus(msg, state = 'loading', progress = null) {
+      const area      = document.getElementById('status-area');
+      const spinner   = document.getElementById('status-spinner');
+      const check     = document.getElementById('status-check');
+      const errIcon   = document.getElementById('status-error-icon');
+      const text      = document.getElementById('status-text');
+      const barWrap   = document.getElementById('progress-bar-wrap');
+      const bar       = document.getElementById('progress-bar');
+      const progLabel = document.getElementById('progress-label');
 
       if (!msg) { area.classList.add('hidden'); return; }
       area.classList.remove('hidden');
@@ -471,10 +479,21 @@ MAIN_PAGE = """<!DOCTYPE html>
       errIcon.classList.toggle('hidden', state !== 'error');
       text.textContent = msg;
       text.className = state === 'error'
-        ? 'text-sm text-red-500'
+        ? 'text-sm text-red-500 flex-1'
         : state === 'done'
-          ? 'text-sm text-emerald-600 font-medium'
-          : 'text-sm text-gl-muted';
+          ? 'text-sm text-emerald-600 font-medium flex-1'
+          : 'text-sm text-gl-muted flex-1';
+
+      if (progress && state === 'loading') {
+        const pct = Math.round((progress.current / progress.total) * 100);
+        barWrap.classList.remove('hidden');
+        bar.style.width = pct + '%';
+        progLabel.textContent = progress.current + '/' + progress.total;
+        progLabel.classList.remove('hidden');
+      } else {
+        barWrap.classList.add('hidden');
+        progLabel.classList.add('hidden');
+      }
     }
 
     // ── Transcription ───────────────────────────────────────────────────────
@@ -517,7 +536,7 @@ MAIN_PAGE = """<!DOCTYPE html>
             btn.classList.remove('loading');
             setStatus(data.error || T[currentLang].error, 'error');
           } else {
-            setStatus(xlate(data.status));
+            setStatus(xlate(data.status), 'loading', data.progress || null);
           }
         } catch (_) {}
       }, 800);
