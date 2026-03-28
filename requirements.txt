@@ -1,0 +1,8 @@
+parakeet-mlx>=0.3.0
+mlx>=0.18.0
+huggingface-hub>=0.24.0
+soundfile>=0.12.1
+fastapi>=0.111.0
+uvicorn>=0.30.0
+python-multipart>=0.0.9
+pywebview>=5.0.0
