@@ -1,4 +1,4 @@
-<p align="center">
+<p align="left">
   <img src="assets/icon.png" width="128" alt="Parakeet Transcriber icon" />
 </p>
 
