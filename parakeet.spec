@@ -101,7 +101,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name="Parakeet Transcriber.app",
-    icon=None,
+    icon="icon.icns",
     bundle_identifier="com.parakeet.transcriber",
     info_plist={
         "CFBundleName": "Parakeet Transcriber",
