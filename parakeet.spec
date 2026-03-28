@@ -34,6 +34,19 @@ all_datas    = []
 all_binaries = []
 all_hidden   = []
 
+# ── Bundle ffmpeg so end users need nothing installed ─────────────────────────
+import shutil as _shutil
+_ffmpeg_src = (
+    _shutil.which("ffmpeg") or
+    next((p for p in ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"]
+          if os.path.isfile(p)), None)
+)
+if _ffmpeg_src:
+    all_binaries.append((_ffmpeg_src, "."))
+    print(f"[spec] Bundling ffmpeg from {_ffmpeg_src}")
+else:
+    print("[spec] WARNING: ffmpeg not found — it will not be bundled")
+
 for pkg in _pkgs:
     try:
         d, b, h = collect_all(pkg)

@@ -82,9 +82,16 @@ def build_srt_subtitle(sentences, max_sec: float = 5.0) -> str:
 # ── Audio helpers ─────────────────────────────────────────────────────────────
 
 def _find_ffmpeg() -> str | None:
+    import sys
+    # 1. Bundled ffmpeg inside the .app (PyInstaller puts binaries next to the exe)
+    bundled = os.path.join(os.path.dirname(sys.executable), "ffmpeg")
+    if os.path.isfile(bundled):
+        return bundled
+    # 2. Common Homebrew / system paths
     for path in ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"]:
         if os.path.isfile(path):
             return path
+    # 3. Anything on PATH
     try:
         subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True, timeout=5)
         return "ffmpeg"

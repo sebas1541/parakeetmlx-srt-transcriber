@@ -93,17 +93,29 @@ if [[ -d "$APP_PATH" ]]; then
     echo "    NOTE: vtool not found — skipping macOS 26 window corner patch."
   fi
 
+  # ── Create DMG installer ─────────────────────────────────────────────────────
+  DMG_PATH="dist/${APP_NAME}.dmg"
+  echo ">>> Creating DMG installer…"
+  TMP_DMG_DIR=$(mktemp -d)
+  cp -r "$APP_PATH" "$TMP_DMG_DIR/"
+  ln -s /Applications "$TMP_DMG_DIR/Applications"
+  hdiutil create \
+    -volname "${APP_NAME}" \
+    -srcfolder "$TMP_DMG_DIR" \
+    -ov -format UDZO \
+    "$DMG_PATH" &>/dev/null \
+    && echo "    Done → $DMG_PATH" \
+    || echo "    WARNING: DMG creation failed (non-fatal)."
+  rm -rf "$TMP_DMG_DIR"
+
   echo ""
   echo "╔══════════════════════════════════════════════════════════════════════╗"
   echo "║  Build succeeded!                                                    ║"
   echo "║                                                                      ║"
   echo "║  App:  dist/${APP_NAME}.app"
+  echo "║  DMG:  dist/${APP_NAME}.dmg  ← share this"
   echo "║                                                                      ║"
-  echo "║  To use:                                                             ║"
-  echo "║    1. Double-click the .app  (or drag it to /Applications)          ║"
-  echo "║    2. Your browser opens automatically                               ║"
-  echo "║    3. Upload a file → Transcribe → Download SRT                     ║"
-  echo "║                                                                      ║"
+  echo "║  To install: open the DMG → drag app to Applications → done.        ║"
   echo "║  First launch downloads the model (~2.3 GB) — be patient once.      ║"
   echo "╚══════════════════════════════════════════════════════════════════════╝"
   echo ""
