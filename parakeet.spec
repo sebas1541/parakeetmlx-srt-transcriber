@@ -17,6 +17,7 @@ _sp = next(
 # ── Collect key packages ──────────────────────────────────────────────────────
 _pkgs = [
     "mlx",
+    "mlx_whisper",
     "parakeet_mlx",
     "huggingface_hub",
     "fastapi",
@@ -66,6 +67,7 @@ if _sp:
 # ── Extra hidden imports ──────────────────────────────────────────────────────
 all_hidden += [
     "mlx.core", "mlx.nn", "mlx.optimizers", "mlx.utils",
+    "mlx_whisper",
     "parakeet_mlx",
     "soundfile",
     "uvicorn.logging", "uvicorn.loops", "uvicorn.loops.auto",

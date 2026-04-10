@@ -5,7 +5,8 @@ from pathlib import Path
 
 import state
 
-_model = None
+_model        = None
+_WHISPER_REPO = "mlx-community/whisper-large-v3-turbo"
 
 _CONVERT_EXTS = {".mp4", ".mov", ".mp3", ".m4a", ".flac", ".ogg", ".aac",
                  ".avi", ".mkv", ".webm"}
@@ -188,18 +189,50 @@ def _transcribe_chunked(model, audio_path: str, job: dict) -> list:
     return sentences
 
 
+# ── Whisper helpers ───────────────────────────────────────────────────────────
+
+def _sentences_from_whisper(result) -> list:
+    """Convert mlx_whisper output to _Sentence/_Token format."""
+    sentences = []
+    for seg in result.get("segments", []):
+        text = seg.get("text", "").strip()
+        if not text:
+            continue
+        words_data = seg.get("words", [])
+        if words_data:
+            tokens = [
+                _Token(w["start"], w["end"], w["word"].strip())
+                for w in words_data
+                if w["word"].strip()
+            ]
+        else:
+            tokens = [_Token(seg["start"], seg["end"], text)]
+        sentences.append(_Sentence(seg["start"], seg["end"], text, tokens))
+    return sentences
+
+
+def _transcribe_whisper(audio_path: str, job: dict, language: str) -> list:
+    """Transcribe with mlx-whisper (used for non-English audio)."""
+    import mlx_whisper
+    job["status"]   = "Transcribing\u2026"
+    job["progress"] = None
+    result = mlx_whisper.transcribe(
+        audio_path,
+        path_or_hf_repo=_WHISPER_REPO,
+        word_timestamps=True,
+        language=language,
+        verbose=False,
+    )
+    return _sentences_from_whisper(result)
+
+
 # ── Transcription worker ──────────────────────────────────────────────────────
 
-def transcribe_worker(job_id: str, src_path: str) -> None:
+def transcribe_worker(job_id: str, src_path: str, language: str = "en") -> None:
     global _model
-    job = state.jobs[job_id]
+    job     = state.jobs[job_id]
     tmp_wav = None
     try:
-        job["status"] = "Loading model\u2026"
-        if _model is None:
-            from parakeet_mlx import from_pretrained
-            _model = from_pretrained("mlx-community/parakeet-tdt-0.6b-v3")
-
         job["status"] = "Preparing audio\u2026"
         ext = Path(src_path).suffix.lower()
         if ext in _CONVERT_EXTS:
@@ -210,7 +243,14 @@ def transcribe_worker(job_id: str, src_path: str) -> None:
         else:
             audio_path = src_path
 
-        sentences = _transcribe_chunked(_model, audio_path, job)
+        if language == "en":
+            job["status"] = "Loading model\u2026"
+            if _model is None:
+                from parakeet_mlx import from_pretrained
+                _model = from_pretrained("mlx-community/parakeet-tdt-0.6b-v3")
+            sentences = _transcribe_chunked(_model, audio_path, job)
+        else:
+            sentences = _transcribe_whisper(audio_path, job, language)
 
         if not sentences:
             job["error"]  = "No speech detected in the file."
@@ -220,6 +260,7 @@ def transcribe_worker(job_id: str, src_path: str) -> None:
         job["status"]       = "Building SRT\u2026"
         job["srt"]          = build_srt(sentences)
         job["srt_subtitle"] = build_srt_subtitle(sentences)
+        job["sentences"]    = sentences
         job["status"]       = "done"
 
     except Exception as exc:

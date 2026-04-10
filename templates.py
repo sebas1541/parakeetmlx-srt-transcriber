@@ -305,6 +305,18 @@ MAIN_PAGE = """<!DOCTYPE html>
 
       <!-- Action row -->
       <div class="px-5 py-4 flex flex-col gap-3">
+
+        <!-- Audio language selector -->
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-gl-muted" id="lbl-audiolang"></span>
+          <div class="flex items-center gap-1 bg-gl-bg rounded-lg p-0.5 border border-gl-border">
+            <button id="btn-lang-en" onclick="setAudioLang('en')"
+              class="px-3 py-1 rounded-md text-xs font-semibold transition-all duration-150 bg-white shadow-sm text-gl-fg border border-gl-border">EN</button>
+            <button id="btn-lang-es" onclick="setAudioLang('es')"
+              class="px-3 py-1 rounded-md text-xs font-semibold transition-all duration-150 text-gl-muted">ES</button>
+          </div>
+        </div>
+
         <button
           id="transcribe-btn"
           disabled
@@ -345,6 +357,99 @@ MAIN_PAGE = """<!DOCTYPE html>
           </svg>
           <span id="view-save-label"></span>
         </button>
+
+        <!-- Caption export panel (shown after transcription) -->
+        <div id="caption-panel" class="hidden flex-col gap-3 pt-3 border-t border-gl-border">
+          <p id="cap-settings-lbl" class="text-[11px] font-semibold text-gl-muted uppercase tracking-wider"></p>
+
+          <!-- Max chars per line -->
+          <div class="flex flex-col gap-1">
+            <div class="flex justify-between items-center">
+              <label class="text-xs font-medium text-gl-fg" id="lbl-maxchars"></label>
+              <span class="text-xs font-mono text-gl-muted" id="val-maxchars">42</span>
+            </div>
+            <input type="range" id="sl-maxchars" min="8" max="50" value="42" step="1"
+              class="w-full accent-primary h-1.5 rounded-full cursor-pointer"
+              oninput="document.getElementById('val-maxchars').textContent=this.value" />
+          </div>
+
+          <!-- Min duration -->
+          <div class="flex flex-col gap-1">
+            <div class="flex justify-between items-center">
+              <label class="text-xs font-medium text-gl-fg" id="lbl-mindur"></label>
+              <span class="text-xs font-mono text-gl-muted" id="val-mindur">1.2s</span>
+            </div>
+            <input type="range" id="sl-mindur" min="0.5" max="10" value="1.2" step="0.1"
+              class="w-full accent-primary h-1.5 rounded-full cursor-pointer"
+              oninput="document.getElementById('val-mindur').textContent=parseFloat(this.value).toFixed(1)+'s'" />
+          </div>
+
+          <!-- Gap between captions (frames) -->
+          <div class="flex flex-col gap-1">
+            <div class="flex justify-between items-center">
+              <label class="text-xs font-medium text-gl-fg" id="lbl-gap"></label>
+              <span class="text-xs font-mono text-gl-muted" id="val-gap">0</span>
+            </div>
+            <input type="range" id="sl-gap" min="0" max="60" value="0" step="1"
+              class="w-full accent-primary h-1.5 rounded-full cursor-pointer"
+              oninput="document.getElementById('val-gap').textContent=this.value" />
+          </div>
+
+          <!-- Lines: single / double -->
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-medium text-gl-fg" id="lbl-lines"></span>
+            <div class="flex items-center gap-3">
+              <label class="flex items-center gap-1.5 text-xs text-gl-fg cursor-pointer">
+                <input type="radio" name="cap-lines" value="1" checked class="accent-primary" />
+                <span id="lbl-single"></span>
+              </label>
+              <label class="flex items-center gap-1.5 text-xs text-gl-fg cursor-pointer">
+                <input type="radio" name="cap-lines" value="2" class="accent-primary" />
+                <span id="lbl-double"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Framerate dropdown -->
+          <div class="flex items-center justify-between gap-2">
+            <label class="text-xs font-medium text-gl-fg" id="lbl-fps"></label>
+            <select id="sel-fps"
+              class="text-xs font-mono text-gl-fg bg-gl-bg border border-gl-border rounded-lg px-2.5 py-1.5 cursor-pointer focus:outline-none focus:border-primary">
+              <option value="23.98">23.98</option>
+              <option value="24">24</option>
+              <option value="25">25</option>
+              <option value="29.97">29.97</option>
+              <option value="30" selected>30</option>
+              <option value="60">60</option>
+            </select>
+          </div>
+
+          <!-- Generate FCPXML button -->
+          <button
+            id="fcpxml-btn"
+            onclick="generateFcpxml()"
+            class="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-primary text-white text-sm font-semibold tracking-tight shadow-btn transition-all duration-150 hover:bg-primary-hover hover:-translate-y-px hover:shadow-btn-hover active:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            <span id="fcpxml-label"></span>
+          </button>
+
+          <!-- Open in Final Cut Pro button -->
+          <button
+            id="openfcp-btn"
+            onclick="openInFcpx()"
+            class="flex items-center justify-center gap-2 w-full h-11 rounded-xl border border-gl-border text-gl-fg text-sm font-semibold tracking-tight transition-all duration-150 hover:bg-gl-hover hover:-translate-y-px active:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
+            </svg>
+            <span id="openfcp-label"></span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -370,6 +475,19 @@ MAIN_PAGE = """<!DOCTYPE html>
           'Transcribing':     'Transcribing\u2026',
           'Building SRT':     'Building SRT\u2026',
         },
+        capSettings: 'Caption Export',
+        maxChars:    'Max chars per line',
+        minDur:      'Min duration (s)',
+        gapFr:       'Gap between captions (frames)',
+        linesLbl:    'Lines per caption',
+        single:      'Single',
+        double:      'Double',
+        fpsLbl:      'Framerate',
+        genFcpxml:   'Generate FCPXML',
+        generating:  'Generating\u2026',
+        openFcp:     'Open in Final Cut Pro',
+        opening:     'Opening\u2026',
+        audioLang:   'Audio language',
       },
       es: {
         desc:        'Sube un archivo de audio o video para generar un archivo <span class="font-medium text-gl-fg">.srt</span> de subtítulos. Impulsado por Parakeet TDT 0.6B\u00a0v3.',
@@ -387,6 +505,19 @@ MAIN_PAGE = """<!DOCTYPE html>
           'Transcribing':     'Transcribiendo\u2026',
           'Building SRT':     'Construyendo SRT\u2026',
         },
+        capSettings: 'Exportar subtítulos',
+        maxChars:    'Máx. caracteres por línea',
+        minDur:      'Duración mínima (s)',
+        gapFr:       'Espacio entre subtítulos (frames)',
+        linesLbl:    'Líneas por subtítulo',
+        single:      'Una',
+        double:      'Dos',
+        fpsLbl:      'Fotogramas/s',
+        genFcpxml:   'Generar FCPXML',
+        generating:  'Generando\u2026',
+        openFcp:     'Abrir en Final Cut Pro',
+        opening:     'Abriendo\u2026',
+        audioLang:   'Idioma del audio',
       },
     };
 
@@ -408,6 +539,17 @@ MAIN_PAGE = """<!DOCTYPE html>
       document.getElementById('view-save-label').textContent  = t.viewSave;
       document.getElementById('lang-toggle').textContent =
         currentLang === 'en' ? 'EN / ES' : 'ES / EN';
+      document.getElementById('cap-settings-lbl').textContent = t.capSettings;
+      document.getElementById('lbl-maxchars').textContent     = t.maxChars;
+      document.getElementById('lbl-mindur').textContent       = t.minDur;
+      document.getElementById('lbl-gap').textContent          = t.gapFr;
+      document.getElementById('lbl-lines').textContent        = t.linesLbl;
+      document.getElementById('lbl-single').textContent       = t.single;
+      document.getElementById('lbl-double').textContent       = t.double;
+      document.getElementById('lbl-fps').textContent          = t.fpsLbl;
+      document.getElementById('fcpxml-label').textContent     = t.genFcpxml;
+      document.getElementById('openfcp-label').textContent    = t.openFcp;
+      document.getElementById('lbl-audiolang').textContent    = t.audioLang;
     }
 
     function toggleLang() {
@@ -424,9 +566,9 @@ MAIN_PAGE = """<!DOCTYPE html>
     }
 
     // ── Drop zone wiring ────────────────────────────────────────────────────
-    let selectedFile = null;
-    let pollInterval = null;
-
+    let selectedFile  = null;
+    let pollInterval  = null;
+    let currentJobId  = null;    let audioLang     = 'en';
     const dropZone  = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
 
@@ -457,7 +599,18 @@ MAIN_PAGE = """<!DOCTYPE html>
       document.getElementById('transcribe-btn').disabled = false;
       document.getElementById('download-btn').classList.add('hidden');
       document.getElementById('download-btn').classList.remove('flex');
+      const cp = document.getElementById('caption-panel');
+      cp.classList.add('hidden');
+      cp.classList.remove('flex');
       setStatus(null);
+    }
+
+    function setAudioLang(lang) {
+      audioLang = lang;
+      const active   = 'px-3 py-1 rounded-md text-xs font-semibold transition-all duration-150 bg-white shadow-sm text-gl-fg border border-gl-border';
+      const inactive = 'px-3 py-1 rounded-md text-xs font-semibold transition-all duration-150 text-gl-muted';
+      document.getElementById('btn-lang-en').className = lang === 'en' ? active : inactive;
+      document.getElementById('btn-lang-es').className = lang === 'es' ? active : inactive;
     }
 
     // ── Status helpers ──────────────────────────────────────────────────────
@@ -506,6 +659,7 @@ MAIN_PAGE = """<!DOCTYPE html>
 
       const form = new FormData();
       form.append('file', selectedFile);
+      form.append('language', audioLang);
 
       let jobId;
       try {
@@ -531,6 +685,11 @@ MAIN_PAGE = """<!DOCTYPE html>
             dlBtn.onclick = () => { window.location.href = '/view/' + jobId; };
             dlBtn.classList.remove('hidden');
             dlBtn.classList.add('flex');
+            currentJobId = jobId;
+            applyLang();
+            const cp = document.getElementById('caption-panel');
+            cp.classList.remove('hidden');
+            cp.classList.add('flex');
           } else if (data.status === 'error') {
             clearInterval(pollInterval);
             btn.classList.remove('loading');
@@ -540,6 +699,65 @@ MAIN_PAGE = """<!DOCTYPE html>
           }
         } catch (_) {}
       }, 800);
+    }
+
+    // ── Caption FCPXML export ───────────────────────────────────────────────
+    async function generateFcpxml() {
+      if (!currentJobId) return;
+      const t   = T[currentLang];
+      const btn = document.getElementById('fcpxml-btn');
+      const lbl = document.getElementById('fcpxml-label');
+      btn.disabled = true;
+      lbl.textContent = t.generating;
+
+      const maxChars    = parseInt(document.getElementById('sl-maxchars').value, 10);
+      const minDuration = parseFloat(document.getElementById('sl-mindur').value);
+      const gapFrames   = parseInt(document.getElementById('sl-gap').value, 10);
+      const lines       = parseInt(document.querySelector('input[name="cap-lines"]:checked').value, 10);
+      const fps         = document.getElementById('sel-fps').value;
+
+      try {
+        const result = await window.pywebview.api.save_fcpxml(
+          currentJobId, maxChars, minDuration, gapFrames, lines, fps
+        );
+        if (!result.ok && result.error && result.error !== 'Cancelled') {
+          alert((t.genFcpxml || 'Error') + ': ' + result.error);
+        }
+      } catch (err) {
+        alert((t.genFcpxml || 'Error') + ': ' + err.message);
+      } finally {
+        btn.disabled    = false;
+        lbl.textContent = t.genFcpxml;
+      }
+    }
+
+    async function openInFcpx() {
+      if (!currentJobId) return;
+      const t   = T[currentLang];
+      const btn = document.getElementById('openfcp-btn');
+      const lbl = document.getElementById('openfcp-label');
+      btn.disabled = true;
+      lbl.textContent = t.opening;
+
+      const maxChars    = parseInt(document.getElementById('sl-maxchars').value, 10);
+      const minDuration = parseFloat(document.getElementById('sl-mindur').value);
+      const gapFrames   = parseInt(document.getElementById('sl-gap').value, 10);
+      const lines       = parseInt(document.querySelector('input[name="cap-lines"]:checked').value, 10);
+      const fps         = document.getElementById('sel-fps').value;
+
+      try {
+        const result = await window.pywebview.api.open_in_fcpx(
+          currentJobId, maxChars, minDuration, gapFrames, lines, fps
+        );
+        if (!result.ok) {
+          alert((t.openFcp || 'Error') + ': ' + result.error);
+        }
+      } catch (err) {
+        alert((t.openFcp || 'Error') + ': ' + err.message);
+      } finally {
+        btn.disabled    = false;
+        lbl.textContent = t.openFcp;
+      }
     }
 
     // ── Init ────────────────────────────────────────────────────────────────

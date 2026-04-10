@@ -9,12 +9,13 @@ from pathlib import Path
 import state
 from transcribe import transcribe_worker, _CONVERT_EXTS
 from templates import MAIN_PAGE, viewer_page
+from captions import build_captions, build_fcpxml, FRAMERATES
 
 PORT = 7860
 
 
 def build_server():
-    from fastapi import FastAPI, UploadFile, File
+    from fastapi import FastAPI, UploadFile, File, Request, Form
     from fastapi.responses import HTMLResponse, JSONResponse, Response
     from fastapi.middleware.cors import CORSMiddleware
 
@@ -29,7 +30,7 @@ def build_server():
         return MAIN_PAGE
 
     @api.post("/transcribe")
-    async def transcribe(file: UploadFile = File(...)):
+    async def transcribe(file: UploadFile = File(...), language: str = Form("en")):
         suffix = Path(file.filename).suffix or ".tmp"
         tmp    = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
         tmp.write(await file.read())
@@ -40,7 +41,7 @@ def build_server():
 
         threading.Thread(
             target=transcribe_worker,
-            args=(job_id, tmp.name),
+            args=(job_id, tmp.name, language),
             daemon=True,
         ).start()
 
@@ -72,6 +73,29 @@ def build_server():
             return R(status_code=404)
         from fastapi.responses import Response as R
         return R(content=job["srt"].encode("utf-8"), media_type="text/plain; charset=utf-8")
+
+    @api.post("/captions/{job_id}")
+    async def captions(job_id: str, request: Request):
+        from fastapi.responses import Response as R
+        job = state.jobs.get(job_id)
+        if not job or job.get("status") != "done":
+            return JSONResponse({"error": "Job not found or not complete"}, status_code=404)
+        body = await request.json()
+        max_chars    = max(1, int(body.get("max_chars",    42)))
+        min_duration = max(0.0, float(body.get("min_duration", 1.2)))
+        gap_frames   = max(0, int(body.get("gap_frames",   0)))
+        lines        = max(1, min(2, int(body.get("lines",  1))))
+        fps_label    = str(body.get("fps", "30"))
+        if fps_label not in FRAMERATES:
+            fps_label = "30"
+        sentences = job.get("sentences", [])
+        caps = build_captions(sentences, max_chars, min_duration, gap_frames, lines, fps_label)
+        xml  = build_fcpxml(caps, fps_label)
+        return R(
+            content=xml.encode("utf-8"),
+            media_type="application/xml",
+            headers={"Content-Disposition": 'attachment; filename="captions.fcpxml"'},
+        )
 
     return api
 

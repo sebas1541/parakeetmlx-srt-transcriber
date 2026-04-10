@@ -29,9 +29,10 @@ if __name__ == "__main__":
     )
     state.window = win
 
-    def _apply_macos26_corners(w):
+    def _apply_macos26_corners(*args):
         """Apply macOS 26 Tahoe-style window corner radius via AppKit."""
         try:
+            w = args[0] if args else win
             content = w.native.contentView()
             if content is not None:
                 content.setWantsLayer_(True)
