@@ -94,10 +94,22 @@ def build_server():
                     if rec.get("id") == job_id:
                         srt_path = Path(rec["srt_path"])
                         if srt_path.exists():
+                            srt_text = srt_path.read_text(encoding="utf-8")
+                            # Inject into state.jobs so jsapi methods can work
+                            state.jobs[job_id] = {
+                                "status":            "done",
+                                "srt":               srt_text,
+                                "srt_subtitle":      "",
+                                "sentences":         [],
+                                "original_filename": rec.get("filename", ""),
+                                "auto_save_path":    rec.get("srt_path", ""),
+                                "error":             None,
+                                "progress":          None,
+                            }
                             return JSONResponse({
-                                "srt":          srt_path.read_text(encoding="utf-8"),
-                                "srt_subtitle": "",
-                                "filename":     rec.get("filename", ""),
+                                "srt":            srt_text,
+                                "srt_subtitle":   "",
+                                "filename":       rec.get("filename", ""),
                                 "auto_save_path": rec.get("srt_path", ""),
                             })
             except Exception:

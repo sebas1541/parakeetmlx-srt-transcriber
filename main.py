@@ -42,5 +42,5 @@ if __name__ == "__main__":
             pass
 
     win.events.shown += _apply_macos26_corners
-    webview.start(debug=True)
+    webview.start()
     sys.exit(0)

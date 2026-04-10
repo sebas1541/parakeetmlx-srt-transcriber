@@ -33,6 +33,31 @@ def _secs_to_fcptime(t: float, fps_num: int, fps_den: int) -> str:
     return f"{num}/{den}s"
 
 
+# ── SRT → captions fallback (for history items without sentence data) ─────────
+
+def _srt_to_captions(srt: str) -> list[dict]:
+    """Parse a plain SRT string into the same [{start, end, text}] format that
+    build_captions() produces.  Used when sentence-level data is unavailable."""
+    import re
+    ts_re = re.compile(
+        r'(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[,.](\d{3})'
+    )
+    captions: list[dict] = []
+    for block in re.split(r'\n\n+', srt.strip()):
+        lines = block.strip().splitlines()
+        for i, line in enumerate(lines):
+            m = ts_re.match(line.strip())
+            if m:
+                h1, m1, s1, ms1, h2, m2, s2, ms2 = m.groups()
+                start = int(h1)*3600 + int(m1)*60 + int(s1) + int(ms1)/1000
+                end   = int(h2)*3600 + int(m2)*60 + int(s2) + int(ms2)/1000
+                text  = '\n'.join(lines[i+1:]).strip()
+                if text:
+                    captions.append({'start': start, 'end': end, 'text': text})
+                break
+    return captions
+
+
 # ── Word-level timestamp extraction ──────────────────────────────────────────
 
 def _extract_words(sentences) -> list[tuple[str, float, float]]:

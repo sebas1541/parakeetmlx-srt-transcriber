@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 
 import state
-from captions import build_captions, build_fcpxml, FRAMERATES
+from captions import build_captions, build_fcpxml, _srt_to_captions, FRAMERATES
 
 
 class JsApi:
@@ -64,11 +64,15 @@ class JsApi:
 
         sentences = job.get("sentences", [])
         fps_label = fps if fps in FRAMERATES else "30"
-        caps = build_captions(sentences, max(1, int(max_chars)),
-                              max(0.0, float(min_duration)),
-                              max(0, int(gap_frames)),
-                              max(1, min(2, int(lines))),
-                              fps_label)
+        if sentences:
+            caps = build_captions(sentences, max(1, int(max_chars)),
+                                  max(0.0, float(min_duration)),
+                                  max(0, int(gap_frames)),
+                                  max(1, min(2, int(lines))),
+                                  fps_label)
+        else:
+            # History item — no sentence data; parse SRT timestamps directly
+            caps = _srt_to_captions(job.get("srt", ""))
         xml = build_fcpxml(caps, fps_label)
         if not xml:
             return {"ok": False, "error": "No captions generated"}
@@ -103,11 +107,14 @@ class JsApi:
 
         sentences = job.get("sentences", [])
         fps_label = fps if fps in FRAMERATES else "30"
-        caps = build_captions(sentences, max(1, int(max_chars)),
-                              max(0.0, float(min_duration)),
-                              max(0, int(gap_frames)),
-                              max(1, min(2, int(lines))),
-                              fps_label)
+        if sentences:
+            caps = build_captions(sentences, max(1, int(max_chars)),
+                                  max(0.0, float(min_duration)),
+                                  max(0, int(gap_frames)),
+                                  max(1, min(2, int(lines))),
+                                  fps_label)
+        else:
+            caps = _srt_to_captions(job.get("srt", ""))
         xml = build_fcpxml(caps, fps_label)
         if not xml:
             return {"ok": False, "error": "No captions generated"}
