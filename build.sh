@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# build.sh — Build "Parakeet Transcriber.app"
+# build.sh — Build "Super Transcribe.app"
 #
 # Prerequisites (install once):
 #   brew install python@3.11 ffmpeg
@@ -10,7 +10,7 @@
 #   ./build.sh
 #
 # Output:
-#   dist/Parakeet Transcriber.app   ← double-click to launch
+#   dist/Super Transcribe.app   ← double-click to launch
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -20,7 +20,7 @@ if [[ ! -x "$PYTHON" ]]; then
   PYTHON="/opt/homebrew/bin/python3.10"
 fi
 VENV=".venv-build"
-APP_NAME="Parakeet Transcriber"
+APP_NAME="Super Transcribe"
 
 # ── Sanity checks ─────────────────────────────────────────────────────────────
 echo ">>> Checking prerequisites…"

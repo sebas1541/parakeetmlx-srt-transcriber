@@ -20,11 +20,11 @@ if __name__ == "__main__":
 
     jsapi      = JsApi()
     win        = webview.create_window(
-        title="Parakeet Transcriber",
+        title="Super Transcribe",
         url=f"http://127.0.0.1:{PORT}",
-        width=560,
-        height=700,
-        min_size=(480, 560),
+        width=1100,
+        height=680,
+        min_size=(900, 560),
         js_api=jsapi,
     )
     state.window = win
@@ -42,5 +42,5 @@ if __name__ == "__main__":
             pass
 
     win.events.shown += _apply_macos26_corners
-    webview.start()
+    webview.start(debug=True)
     sys.exit(0)

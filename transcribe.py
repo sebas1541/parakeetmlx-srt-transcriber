@@ -1,6 +1,8 @@
 import os
+import json
 import subprocess
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import state
@@ -211,24 +213,26 @@ def _sentences_from_whisper(result) -> list:
     return sentences
 
 
-def _transcribe_whisper(audio_path: str, job: dict, language: str) -> list:
-    """Transcribe with mlx-whisper (used for non-English audio)."""
+def _transcribe_whisper(audio_path: str, job: dict, language: str | None = None) -> list:
+    """Transcribe with mlx-whisper. Pass language=None for auto-detection."""
     import mlx_whisper
     job["status"]   = "Transcribing\u2026"
     job["progress"] = None
-    result = mlx_whisper.transcribe(
-        audio_path,
+    kwargs: dict = dict(
         path_or_hf_repo=_WHISPER_REPO,
         word_timestamps=True,
-        language=language,
         verbose=False,
     )
+    if language:
+        kwargs["language"] = language
+    result = mlx_whisper.transcribe(audio_path, **kwargs)
     return _sentences_from_whisper(result)
 
 
 # ── Transcription worker ──────────────────────────────────────────────────────
 
-def transcribe_worker(job_id: str, src_path: str, language: str = "en") -> None:
+def transcribe_worker(job_id: str, src_path: str, model: str = "whisper") -> None:
+    """model: 'whisper' (auto-detect language) or 'parakeet' (English only)."""
     global _model
     job     = state.jobs[job_id]
     tmp_wav = None
@@ -243,14 +247,14 @@ def transcribe_worker(job_id: str, src_path: str, language: str = "en") -> None:
         else:
             audio_path = src_path
 
-        if language == "en":
+        if model == "parakeet":
             job["status"] = "Loading model\u2026"
             if _model is None:
                 from parakeet_mlx import from_pretrained
                 _model = from_pretrained("mlx-community/parakeet-tdt-0.6b-v3")
             sentences = _transcribe_chunked(_model, audio_path, job)
         else:
-            sentences = _transcribe_whisper(audio_path, job, language)
+            sentences = _transcribe_whisper(audio_path, job)
 
         if not sentences:
             job["error"]  = "No speech detected in the file."
@@ -261,7 +265,37 @@ def transcribe_worker(job_id: str, src_path: str, language: str = "en") -> None:
         job["srt"]          = build_srt(sentences)
         job["srt_subtitle"] = build_srt_subtitle(sentences)
         job["sentences"]    = sentences
-        job["status"]       = "done"
+
+        # ── Auto-save to ~/Documents/SuperTranscribe/ ──────────────────────
+        try:
+            orig_name = job.get("original_filename", "transcript")
+            stem      = Path(orig_name).stem[:60]
+            srt_name  = f"{stem}_{job_id[:8]}.srt"
+            srt_path  = state.DOCS_DIR / srt_name
+            srt_path.write_text(job["srt"], encoding="utf-8")
+            job["auto_save_path"] = str(srt_path)
+
+            hist_file = state.DOCS_DIR / "history.json"
+            history: list = []
+            if hist_file.exists():
+                try:
+                    history = json.loads(hist_file.read_text(encoding="utf-8"))
+                except Exception:
+                    history = []
+            history.insert(0, {
+                "id":           job_id,
+                "filename":     orig_name,
+                "created_at":   datetime.now(timezone.utc).isoformat(),
+                "srt_path":     str(srt_path),
+                "model":        model,
+            })
+            history = history[:100]  # keep last 100
+            hist_file.write_text(json.dumps(history, ensure_ascii=False, indent=2),
+                                 encoding="utf-8")
+        except Exception:
+            pass  # auto-save failure is non-fatal
+
+        job["status"] = "done"
 
     except Exception as exc:
         job["error"]  = str(exc)

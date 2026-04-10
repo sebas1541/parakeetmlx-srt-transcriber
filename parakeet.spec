@@ -98,7 +98,7 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz, a.scripts, [],
     exclude_binaries=True,
-    name="Parakeet Transcriber",
+    name="Super Transcribe",
     debug=False, strip=False, upx=False,
     console=False,
     argv_emulation=False,
@@ -110,17 +110,17 @@ exe = EXE(
 coll = COLLECT(
     exe, a.binaries, a.zipfiles, a.datas,
     strip=False, upx=False,
-    name="Parakeet Transcriber",
+    name="Super Transcribe",
 )
 
 app = BUNDLE(
     coll,
-    name="Parakeet Transcriber.app",
+    name="Super Transcribe.app",
     icon="icon.icns",
-    bundle_identifier="com.parakeet.transcriber",
+    bundle_identifier="com.supertranscribe.app",
     info_plist={
-        "CFBundleName": "Parakeet Transcriber",
-        "CFBundleDisplayName": "Parakeet Transcriber",
+        "CFBundleName": "Super Transcribe",
+        "CFBundleDisplayName": "Super Transcribe",
         "CFBundleShortVersionString": "1.0.0",
         "CFBundleVersion": "1",
         "NSHighResolutionCapable": True,

@@ -195,350 +195,435 @@ MAIN_PAGE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Parakeet Transcriber</title>
+  <title>Super Transcribe</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700&display=swap" rel="stylesheet" />
   <script>
     tailwind.config = {
       theme: {
         extend: {
           fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
           colors: {
-            primary:    'hsl(228 88% 66%)',
-            'primary-hover': 'hsl(228 88% 58%)',
-            'primary-soft':  'hsl(228 88% 96%)',
-            'gl-bg':    'hsl(228 25% 97%)',
-            'gl-card':  '#ffffff',
-            'gl-fg':    'hsl(228 30% 14%)',
-            'gl-muted': 'hsl(228 10% 55%)',
-            'gl-border':'hsl(228 20% 92%)',
+            primary:         'hsl(228 88% 62%)',
+            'primary-hover': 'hsl(228 88% 55%)',
+            'primary-soft':  'hsl(228 88% 97%)',
+            'gl-bg':         'hsl(228 20% 97%)',
+            'gl-card':       '#ffffff',
+            'gl-fg':         'hsl(228 30% 12%)',
+            'gl-muted':      'hsl(228 10% 52%)',
+            'gl-border':     'hsl(228 18% 90%)',
+            'gl-hover':      'hsl(228 20% 94%)',
           },
-          borderRadius: { xl2: '1rem' },
           boxShadow: {
-            card: '0 1px 3px 0 rgba(0,0,0,.06), 0 1px 2px -1px rgba(0,0,0,.04)',
-            btn:  '0 1px 2px rgba(91,122,247,.25)',
-            'btn-hover': '0 6px 16px rgba(91,122,247,.35)',
+            card:       '0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04)',
+            btn:        '0 1px 2px rgba(80,110,240,.20)',
+            'btn-hover':'0 4px 14px rgba(80,110,240,.32)',
           },
         }
       }
     }
   </script>
   <style>
-    body { -webkit-font-smoothing: antialiased; }
+    html, body { height: 100%; overflow: hidden; -webkit-font-smoothing: antialiased; }
+
     #drop-zone.drag-over {
-      border-color: hsl(228 88% 66%) !important;
-      background: hsl(228 88% 96%) !important;
+      border-color: hsl(228 88% 62%) !important;
+      background:   hsl(228 88% 97%) !important;
     }
-    .spinner {
-      width: 18px; height: 18px;
-      border: 2px solid rgba(255,255,255,.35);
-      border-top-color: #fff;
-      border-radius: 9999px;
-      animation: spin .7s linear infinite;
-      display: none;
+
+    @keyframes wave {
+      0%, 100% { transform: scaleY(0.2); }
+      50%       { transform: scaleY(1);  }
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    #transcribe-btn.loading .spinner  { display: block; }
-    #transcribe-btn.loading .btn-label { display: none; }
-    #transcribe-btn.loading { opacity: .85; cursor: not-allowed; pointer-events: none; }
+    .wave-bar {
+      width: 4px; border-radius: 9999px;
+      background: hsl(228 88% 62%);
+      animation: wave 1.1s ease-in-out infinite;
+      transform-origin: bottom center;
+    }
+    .wave-bar:nth-child(1){animation-delay:0ms;   height:38px;}
+    .wave-bar:nth-child(2){animation-delay:110ms; height:54px;}
+    .wave-bar:nth-child(3){animation-delay:220ms; height:70px;}
+    .wave-bar:nth-child(4){animation-delay:330ms; height:82px;}
+    .wave-bar:nth-child(5){animation-delay:220ms; height:70px;}
+    .wave-bar:nth-child(6){animation-delay:110ms; height:54px;}
+    .wave-bar:nth-child(7){animation-delay:0ms;   height:38px;}
+
+    .view {
+      transition: opacity 270ms ease, transform 270ms ease;
+      position: absolute; inset: 0;
+    }
+    .view.hidden-view {
+      opacity: 0; transform: translateY(8px); pointer-events: none;
+    }
+
+    #transcript-content {
+      font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+      font-size: .77rem; line-height: 1.75;
+      white-space: pre-wrap; word-break: break-word;
+    }
+
+    ::-webkit-scrollbar       { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: hsl(228 15% 84%); border-radius: 9999px; }
+
+    .sidebar-item.active      { background: hsl(228 30% 20%) !important; }
+    .sidebar-item.active .item-bar { opacity: 1; }
+    .item-bar {
+      width: 3px; border-radius: 9999px;
+      background: hsl(228 88% 68%); opacity: 0;
+      transition: opacity 150ms; flex-shrink: 0; align-self: stretch;
+    }
+
+    .tab-btn { transition: all 150ms ease; }
+    .tab-btn.active { background: hsl(228 88% 97%); color: hsl(228 88% 55%); }
+    .tab-btn:not(.active) { color: hsl(228 10% 52%); }
+    .tab-btn:not(.active):hover { color: hsl(228 30% 12%); }
+
+    input[type=range] { accent-color: hsl(228 88% 62%); }
+
+    .cap-row { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+    .cap-row label { font-size:.72rem; color:hsl(228 10% 52%); width:96px; flex-shrink:0; }
+    .cap-row input[type=range] { flex:1; }
+    .cap-row .val { font-size:.72rem; font-weight:600; color:hsl(228 30% 12%); min-width:2rem; text-align:right; }
   </style>
 </head>
-<body class="bg-gl-bg font-sans min-h-screen flex items-start justify-center pt-16 px-4">
+<body class="font-sans h-screen flex overflow-hidden" style="background:hsl(228 20% 97%);">
 
-  <div class="w-full max-w-lg">
-
-    <!-- Header -->
-    <div class="mb-8">
-      <div class="flex items-center justify-between mb-2">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-btn">
-            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
-            </svg>
-          </div>
-          <h1 class="text-xl font-semibold tracking-tight text-gl-fg">Parakeet Transcriber</h1>
+  <!-- SIDEBAR -->
+  <aside class="w-52 flex-shrink-0 flex flex-col" style="background:hsl(228 25% 11%);">
+    <div class="px-4 pt-5 pb-3" style="border-bottom:1px solid hsl(228 22% 18%);">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style="background:hsl(228 88% 62%);">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+          </svg>
         </div>
-        <button id="lang-toggle" onclick="toggleLang()"
-          class="text-[11px] font-semibold text-gl-muted hover:text-gl-fg border border-gl-border rounded-lg px-2.5 py-1 transition-colors duration-150 hover:border-primary hover:bg-primary-soft">
-          EN / ES
-        </button>
+        <span class="text-sm font-semibold text-white tracking-tight">Super Transcribe</span>
       </div>
-      <p id="desc-text" class="text-sm text-gl-muted leading-relaxed pl-0.5"></p>
     </div>
 
-    <!-- Card -->
-    <div class="bg-gl-card rounded-2xl border border-gl-border shadow-card overflow-hidden">
+    <div class="px-4 pt-4 pb-1">
+      <span id="lbl-recents" class="text-xs font-semibold uppercase tracking-widest" style="color:hsl(228 10% 38%);"></span>
+    </div>
 
-      <!-- Drop zone -->
-      <div class="p-5 border-b border-gl-border">
-        <div
-          id="drop-zone"
-          class="relative flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gl-border bg-gl-bg px-6 py-10 transition-colors duration-150 cursor-pointer hover:border-primary hover:bg-primary-soft"
-          onclick="document.getElementById('file-input').click()"
-        >
-          <input id="file-input" type="file" class="hidden"
-            accept=".mp3,.mp4,.wav,.m4a,.mov,.flac,.ogg,.aac,.mkv,.webm" />
+    <div id="sidebar-list" class="flex-1 overflow-y-auto px-2 pb-3 space-y-px">
+      <div id="sidebar-empty" class="px-3 py-4 text-xs" style="color:hsl(228 10% 40%);"></div>
+    </div>
 
-          <div id="drop-icon" class="w-10 h-10 rounded-xl bg-white border border-gl-border shadow-card flex items-center justify-center">
-            <svg class="w-5 h-5 text-gl-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-            </svg>
+    <div class="px-3 pb-4 pt-2" style="border-top:1px solid hsl(228 22% 18%);">
+      <button onclick="toggleLang()" id="lang-toggle"
+        class="w-full text-xs font-medium py-1.5 rounded-lg transition-colors"
+        style="color:hsl(228 15% 58%); background:hsl(228 22% 16%);"></button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="flex-shrink-0 h-12 flex items-center justify-between px-6 bg-white" style="border-bottom:1px solid hsl(228 18% 90%);">
+      <span id="header-title" class="text-sm font-semibold tracking-tight" style="color:hsl(228 30% 12%);"></span>
+      <button onclick="newTranscription()"
+        class="flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-xs font-semibold text-white shadow-btn transition-all hover:-translate-y-px hover:shadow-btn-hover"
+        style="background:hsl(228 88% 62%);">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        <span id="lbl-new-btn"></span>
+      </button>
+    </header>
+
+    <!-- Content viewport -->
+    <div class="flex-1 relative overflow-hidden">
+
+      <!-- VIEW: UPLOAD -->
+      <div id="view-upload" class="view flex items-center justify-center" style="padding:2rem;">
+        <div class="w-full max-w-lg flex flex-col gap-5">
+          <div>
+            <h1 id="upload-title" class="text-2xl font-bold tracking-tight mb-1" style="color:hsl(228 30% 12%);"></h1>
+            <p id="desc-text" class="text-sm leading-relaxed" style="color:hsl(228 10% 52%);"></p>
           </div>
 
-          <div id="drop-text" class="text-center">
-            <p id="drop-title" class="text-sm font-medium text-gl-fg"></p>
-            <p id="drop-sub" class="text-xs text-gl-muted mt-0.5"></p>
+          <!-- Model -->
+          <div class="flex items-center gap-3">
+            <span id="lbl-model" class="text-xs font-semibold uppercase tracking-wider" style="color:hsl(228 10% 52%);"></span>
+            <div class="flex items-center gap-1 rounded-lg p-0.5" style="background:hsl(228 20% 94%); border:1px solid hsl(228 18% 90%);">
+              <button id="btn-model-whisper" onclick="setModel('whisper')"
+                class="px-3 py-1 rounded-md text-xs font-semibold transition-all bg-white shadow-sm border" style="color:hsl(228 30% 12%); border-color:hsl(228 18% 88%);">Whisper</button>
+              <button id="btn-model-parakeet" onclick="setModel('parakeet')"
+                class="px-3 py-1 rounded-md text-xs font-semibold transition-all" style="color:hsl(228 10% 52%);">Parakeet</button>
+            </div>
+            <span id="lbl-model-hint" class="text-xs" style="color:hsl(228 10% 52%);"></span>
           </div>
 
-          <div id="file-name-display" class="hidden text-center">
-            <p class="text-sm font-semibold text-gl-fg" id="file-name-text"></p>
-            <p class="text-xs text-gl-muted mt-0.5" id="file-size-text"></p>
+          <!-- Drop zone -->
+          <div id="drop-zone" onclick="document.getElementById('file-input').click()"
+            class="flex flex-col items-center justify-center gap-3 py-10 rounded-2xl border-2 border-dashed cursor-pointer transition-all"
+            style="border-color:hsl(228 18% 88%); background:#fff;">
+            <input id="file-input" type="file" class="hidden"
+              accept=".wav,.mp4,.mov,.mp3,.m4a,.flac,.ogg,.aac,.avi,.mkv,.webm" />
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background:hsl(228 88% 97%);">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="hsl(228 88% 62%)" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+              </svg>
+            </div>
+            <div id="drop-text" class="text-center">
+              <p id="drop-title" class="text-sm font-semibold" style="color:hsl(228 30% 12%);"></p>
+              <p id="drop-sub" class="text-xs mt-0.5" style="color:hsl(228 10% 52%);"></p>
+            </div>
+            <div id="file-name-display" class="hidden flex-col items-center gap-0.5 text-center">
+              <p id="file-name-text" class="text-sm font-semibold" style="color:hsl(228 30% 12%);"></p>
+              <p id="file-size-text" class="text-xs" style="color:hsl(228 10% 52%);"></p>
+            </div>
           </div>
 
-          <p class="text-[11px] text-gl-muted mt-1">mp3 · mp4 · wav · m4a · mov · flac</p>
+          <button id="transcribe-btn" disabled onclick="startTranscription()"
+            class="flex items-center justify-center w-full h-11 rounded-xl text-sm font-semibold text-white shadow-btn transition-all hover:-translate-y-px hover:shadow-btn-hover disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+            style="background:hsl(228 88% 62%);">
+            <span id="transcribe-label"></span>
+          </button>
         </div>
       </div>
 
-      <!-- Action row -->
-      <div class="px-5 py-4 flex flex-col gap-3">
+      <!-- VIEW: PROCESSING -->
+      <div id="view-processing" class="view hidden-view flex flex-col items-center justify-center gap-8">
+        <div class="relative" style="padding:2rem;">
+          <div class="absolute inset-0 rounded-full blur-3xl opacity-15" style="background:hsl(228 88% 62%);"></div>
+          <div class="flex items-end gap-2 relative" style="height:90px;">
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+          </div>
+        </div>
+        <div class="text-center">
+          <p id="proc-filename" class="text-base font-semibold mb-1" style="color:hsl(228 30% 12%);"></p>
+          <p id="proc-status" class="text-sm" style="color:hsl(228 10% 52%);"></p>
+        </div>
+        <div id="proc-bar-wrap" class="hidden w-44 h-1 rounded-full overflow-hidden" style="background:hsl(228 18% 90%);">
+          <div id="proc-bar" class="h-full rounded-full transition-all duration-300" style="background:hsl(228 88% 62%); width:0%;"></div>
+        </div>
+      </div>
 
-        <!-- Audio language selector -->
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-medium text-gl-muted" id="lbl-audiolang"></span>
-          <div class="flex items-center gap-1 bg-gl-bg rounded-lg p-0.5 border border-gl-border">
-            <button id="btn-lang-en" onclick="setAudioLang('en')"
-              class="px-3 py-1 rounded-md text-xs font-semibold transition-all duration-150 bg-white shadow-sm text-gl-fg border border-gl-border">EN</button>
-            <button id="btn-lang-es" onclick="setAudioLang('es')"
-              class="px-3 py-1 rounded-md text-xs font-semibold transition-all duration-150 text-gl-muted">ES</button>
+      <!-- VIEW: RESULTS -->
+      <div id="view-results" class="view hidden-view flex overflow-hidden" style="height:100%;">
+
+        <!-- Left: transcript -->
+        <div class="flex flex-col overflow-hidden" style="width:52%; border-right:1px solid hsl(228 18% 90%);">
+          <div class="flex-shrink-0 flex items-center gap-1 px-5 py-2.5 bg-white" style="border-bottom:1px solid hsl(228 18% 90%);">
+            <button id="tab-full"     onclick="setTranscriptMode('full')"     class="tab-btn active px-3 py-1 rounded-md text-xs font-semibold"></button>
+            <button id="tab-subtitle" onclick="setTranscriptMode('subtitle')" class="tab-btn px-3 py-1 rounded-md text-xs font-semibold"></button>
+            <button id="tab-txt"      onclick="setTranscriptMode('txt')"      class="tab-btn px-3 py-1 rounded-md text-xs font-semibold"></button>
+          </div>
+          <div class="flex-1 overflow-y-auto px-5 py-4">
+            <pre id="transcript-content" style="color:hsl(228 30% 12%);"></pre>
           </div>
         </div>
 
-        <button
-          id="transcribe-btn"
-          disabled
-          class="flex items-center justify-center gap-2.5 w-full h-11 rounded-xl bg-primary text-white text-sm font-semibold tracking-tight shadow-btn transition-all duration-150 hover:bg-primary-hover hover:-translate-y-px hover:shadow-btn-hover active:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
-          onclick="startTranscription()"
-        >
-          <div class="spinner"></div>
-          <span class="btn-label" id="transcribe-label"></span>
-        </button>
+        <!-- Right: actions -->
+        <div class="flex flex-col overflow-y-auto px-5 py-5 gap-4 bg-white" style="width:48%;">
 
-        <!-- Status -->
-        <div id="status-area" class="hidden flex flex-col gap-2">
-          <div id="status-row" class="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-gl-bg border border-gl-border">
-            <div id="status-spinner" class="hidden w-4 h-4 border-2 border-gl-border border-t-primary rounded-full animate-spin flex-shrink-0"></div>
-            <svg id="status-check" class="hidden w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <!-- Auto-save badge -->
+          <div id="autosave-badge" class="hidden items-start gap-2 px-3.5 py-2.5 rounded-xl"
+            style="background:#f0fdf4; border:1px solid #bbf7d0;">
+            <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="#16a34a" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
             </svg>
-            <svg id="status-error-icon" class="hidden w-4 h-4 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-            </svg>
-            <p id="status-text" class="text-sm text-gl-muted flex-1"></p>
-            <span id="progress-label" class="hidden text-xs font-mono text-gl-muted"></span>
-          </div>
-          <!-- Progress bar (only shown for chunked/long files) -->
-          <div id="progress-bar-wrap" class="hidden h-1.5 rounded-full bg-gl-border overflow-hidden">
-            <div id="progress-bar" class="h-full bg-primary rounded-full transition-all duration-500" style="width:0%"></div>
-          </div>
-        </div>
-
-        <!-- View / Save -->
-        <button
-          id="download-btn"
-          class="hidden items-center justify-center gap-2 w-full h-11 rounded-xl border border-gl-border bg-white text-sm font-semibold text-gl-fg shadow-card transition-all duration-150 hover:border-primary hover:text-primary hover:bg-primary-soft"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round"
-              d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-          </svg>
-          <span id="view-save-label"></span>
-        </button>
-
-        <!-- Caption export panel (shown after transcription) -->
-        <div id="caption-panel" class="hidden flex-col gap-3 pt-3 border-t border-gl-border">
-          <p id="cap-settings-lbl" class="text-[11px] font-semibold text-gl-muted uppercase tracking-wider"></p>
-
-          <!-- Max chars per line -->
-          <div class="flex flex-col gap-1">
-            <div class="flex justify-between items-center">
-              <label class="text-xs font-medium text-gl-fg" id="lbl-maxchars"></label>
-              <span class="text-xs font-mono text-gl-muted" id="val-maxchars">42</span>
-            </div>
-            <input type="range" id="sl-maxchars" min="8" max="50" value="42" step="1"
-              class="w-full accent-primary h-1.5 rounded-full cursor-pointer"
-              oninput="document.getElementById('val-maxchars').textContent=this.value" />
-          </div>
-
-          <!-- Min duration -->
-          <div class="flex flex-col gap-1">
-            <div class="flex justify-between items-center">
-              <label class="text-xs font-medium text-gl-fg" id="lbl-mindur"></label>
-              <span class="text-xs font-mono text-gl-muted" id="val-mindur">1.2s</span>
-            </div>
-            <input type="range" id="sl-mindur" min="0.5" max="10" value="1.2" step="0.1"
-              class="w-full accent-primary h-1.5 rounded-full cursor-pointer"
-              oninput="document.getElementById('val-mindur').textContent=parseFloat(this.value).toFixed(1)+'s'" />
-          </div>
-
-          <!-- Gap between captions (frames) -->
-          <div class="flex flex-col gap-1">
-            <div class="flex justify-between items-center">
-              <label class="text-xs font-medium text-gl-fg" id="lbl-gap"></label>
-              <span class="text-xs font-mono text-gl-muted" id="val-gap">0</span>
-            </div>
-            <input type="range" id="sl-gap" min="0" max="60" value="0" step="1"
-              class="w-full accent-primary h-1.5 rounded-full cursor-pointer"
-              oninput="document.getElementById('val-gap').textContent=this.value" />
-          </div>
-
-          <!-- Lines: single / double -->
-          <div class="flex items-center justify-between gap-2">
-            <span class="text-xs font-medium text-gl-fg" id="lbl-lines"></span>
-            <div class="flex items-center gap-3">
-              <label class="flex items-center gap-1.5 text-xs text-gl-fg cursor-pointer">
-                <input type="radio" name="cap-lines" value="1" checked class="accent-primary" />
-                <span id="lbl-single"></span>
-              </label>
-              <label class="flex items-center gap-1.5 text-xs text-gl-fg cursor-pointer">
-                <input type="radio" name="cap-lines" value="2" class="accent-primary" />
-                <span id="lbl-double"></span>
-              </label>
+            <div class="min-w-0">
+              <p id="lbl-autosaved" class="text-xs font-semibold" style="color:#15803d;"></p>
+              <p id="autosave-path" class="text-xs mt-0.5 break-all" style="color:#166534;"></p>
             </div>
           </div>
 
-          <!-- Framerate dropdown -->
-          <div class="flex items-center justify-between gap-2">
-            <label class="text-xs font-medium text-gl-fg" id="lbl-fps"></label>
-            <select id="sel-fps"
-              class="text-xs font-mono text-gl-fg bg-gl-bg border border-gl-border rounded-lg px-2.5 py-1.5 cursor-pointer focus:outline-none focus:border-primary">
-              <option value="23.98">23.98</option>
-              <option value="24">24</option>
-              <option value="25">25</option>
-              <option value="29.97">29.97</option>
-              <option value="30" selected>30</option>
-              <option value="60">60</option>
-            </select>
-          </div>
-
-          <!-- Generate FCPXML button -->
-          <button
-            id="fcpxml-btn"
-            onclick="generateFcpxml()"
-            class="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-primary text-white text-sm font-semibold tracking-tight shadow-btn transition-all duration-150 hover:bg-primary-hover hover:-translate-y-px hover:shadow-btn-hover active:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
-          >
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <!-- Save SRT -->
+          <button onclick="saveSrt()"
+            class="flex items-center justify-center gap-2 w-full h-9 rounded-xl text-sm font-medium transition-all hover:-translate-y-px hover:bg-gl-hover"
+            style="border:1px solid hsl(228 18% 90%); color:hsl(228 30% 12%); background:#fff;">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="hsl(228 10% 52%)" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round"
                 d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
             </svg>
-            <span id="fcpxml-label"></span>
+            <span id="lbl-save-srt"></span>
           </button>
 
-          <!-- Open in Final Cut Pro button -->
-          <button
-            id="openfcp-btn"
-            onclick="openInFcpx()"
-            class="flex items-center justify-center gap-2 w-full h-11 rounded-xl border border-gl-border text-gl-fg text-sm font-semibold tracking-tight transition-all duration-150 hover:bg-gl-hover hover:-translate-y-px active:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
-          >
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
-            </svg>
-            <span id="openfcp-label"></span>
-          </button>
+          <!-- Caption export -->
+          <div style="border-top:1px solid hsl(228 18% 90%); padding-top:14px;">
+            <p id="cap-settings-lbl" class="text-xs font-semibold uppercase tracking-wider mb-3" style="color:hsl(228 10% 52%);"></p>
+            <div class="cap-row"><label id="lbl-maxchars"></label><input type="range" id="sl-maxchars" min="8" max="50" value="42" step="1" oninput="document.getElementById('val-maxchars').textContent=this.value" /><span class="val" id="val-maxchars">42</span></div>
+            <div class="cap-row"><label id="lbl-mindur"></label><input type="range" id="sl-mindur" min="0.5" max="10" value="1.2" step="0.1" oninput="document.getElementById('val-mindur').textContent=parseFloat(this.value).toFixed(1)" /><span class="val" id="val-mindur">1.2</span></div>
+            <div class="cap-row"><label id="lbl-gap"></label><input type="range" id="sl-gap" min="0" max="60" value="0" step="1" oninput="document.getElementById('val-gap').textContent=this.value" /><span class="val" id="val-gap">0</span></div>
+
+            <div class="flex items-center gap-4 my-3 flex-wrap">
+              <div class="flex items-center gap-2">
+                <span id="lbl-lines" class="text-xs" style="color:hsl(228 10% 52%);"></span>
+                <label class="flex items-center gap-1 text-xs cursor-pointer" style="color:hsl(228 30% 12%);">
+                  <input type="radio" name="cap-lines" value="1" checked /> <span id="lbl-single"></span>
+                </label>
+                <label class="flex items-center gap-1 text-xs cursor-pointer" style="color:hsl(228 30% 12%);">
+                  <input type="radio" name="cap-lines" value="2" /> <span id="lbl-double"></span>
+                </label>
+              </div>
+              <div class="flex items-center gap-2 ml-auto">
+                <span id="lbl-fps" class="text-xs" style="color:hsl(228 10% 52%);"></span>
+                <select id="sel-fps" class="text-xs rounded-lg px-2 py-1 focus:outline-none" style="border:1px solid hsl(228 18% 90%); color:hsl(228 30% 12%); background:#fff;">
+                  <option value="23.98">23.98</option>
+                  <option value="24">24</option>
+                  <option value="25">25</option>
+                  <option value="29.97">29.97</option>
+                  <option value="30" selected>30</option>
+                  <option value="60">60</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-2">
+              <button id="fcpxml-btn" onclick="generateFcpxml()"
+                class="flex items-center justify-center gap-2 w-full h-9 rounded-xl text-xs font-semibold text-white shadow-btn transition-all hover:-translate-y-px hover:shadow-btn-hover disabled:opacity-40 disabled:cursor-not-allowed"
+                style="background:hsl(228 88% 62%);">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                <span id="fcpxml-label"></span>
+              </button>
+              <button id="openfcp-btn" onclick="openInFcpx()"
+                class="flex items-center justify-center gap-2 w-full h-9 rounded-xl text-xs font-semibold transition-all hover:-translate-y-px hover:bg-gl-hover disabled:opacity-40 disabled:cursor-not-allowed"
+                style="border:1px solid hsl(228 18% 90%); color:hsl(228 30% 12%); background:#fff;">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
+                </svg>
+                <span id="openfcp-label"></span>
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
 
-
-  </div>
+      </div><!-- /view-results -->
+    </div><!-- /viewport -->
+  </div><!-- /main -->
 
   <script>
-    // ── i18n ────────────────────────────────────────────────────────────────
+    // i18n
     const T = {
       en: {
-        desc:        'Drop an audio or video file to generate a downloadable <span class="font-medium text-gl-fg">.srt</span> subtitle file. Powered by Parakeet TDT 0.6B\u00a0v3.',
+        uploadTitle: 'New Transcription',
+        desc:        'Drop an audio or video file to generate a <span class="font-medium" style="color:hsl(228 30% 12%);">.srt</span> subtitle file. Powered by Whisper large-v3-turbo &amp; Parakeet TDT 0.6B.',
         dropTitle:   'Drop your file here',
         dropSub:     'or click to browse',
         transcribe:  'Transcribe',
-        viewSave:    'View\u00a0& Save SRT',
-        uploading:   'Uploading file\u2026',
+        uploading:   'Uploading\u2026',
         uploadFail:  'Upload failed: ',
         complete:    'Transcription complete!',
         error:       'Something went wrong.',
         statusMap: {
-          'Loading model':    'Loading model\u2026',
-          'Preparing audio':  'Preparing audio\u2026',
-          'Transcribing':     'Transcribing\u2026',
-          'Building SRT':     'Building SRT\u2026',
+          'Loading model\u2026':   'Loading model\u2026',
+          'Preparing audio\u2026': 'Preparing audio\u2026',
+          'Transcribing\u2026':    'Transcribing\u2026',
+          'Building SRT\u2026':    'Building SRT\u2026',
         },
         capSettings: 'Caption Export',
-        maxChars:    'Max chars per line',
+        maxChars:    'Max chars / line',
         minDur:      'Min duration (s)',
-        gapFr:       'Gap between captions (frames)',
-        linesLbl:    'Lines per caption',
+        gapFr:       'Gap (frames)',
+        linesLbl:    'Lines',
         single:      'Single',
         double:      'Double',
-        fpsLbl:      'Framerate',
-        genFcpxml:   'Generate FCPXML',
+        fpsLbl:      'FPS',
+        genFcpxml:   'Generate FCPXML\u2026',
         generating:  'Generating\u2026',
         openFcp:     'Open in Final Cut Pro',
         opening:     'Opening\u2026',
-        audioLang:   'Audio language',
+        modelLbl:    'Model',
+        engOnly:     'English only',
+        autoDetect:  'Auto-detect language',
+        recents:     'Recents',
+        noTrans:     'No transcriptions yet',
+        newBtn:      'New Transcription',
+        headerNew:   'New Transcription',
+        saveSrt:     'Save SRT\u2026',
+        autosaved:   'Auto-saved to Documents',
+        tabFull:     'Full SRT',
+        tabSub:      'Subtitle',
+        tabTxt:      'Plain Text',
       },
       es: {
-        desc:        'Sube un archivo de audio o video para generar un archivo <span class="font-medium text-gl-fg">.srt</span> de subtítulos. Impulsado por Parakeet TDT 0.6B\u00a0v3.',
-        dropTitle:   'Suelta tu archivo aquí',
+        uploadTitle: 'Nueva transcripci\u00f3n',
+        desc:        'Sube un archivo de audio o video para generar un <span class="font-medium" style="color:hsl(228 30% 12%);">.srt</span> de subt\u00edtulos. Impulsado por Whisper large-v3-turbo &amp; Parakeet TDT 0.6B.',
+        dropTitle:   'Suelta tu archivo aqu\u00ed',
         dropSub:     'o haz clic para explorar',
         transcribe:  'Transcribir',
-        viewSave:    'Ver\u00a0y guardar SRT',
-        uploading:   'Subiendo archivo\u2026',
+        uploading:   'Subiendo\u2026',
         uploadFail:  'Error al subir: ',
-        complete:    '\u00a1Transcripción completa!',
-        error:       'Algo salió mal.',
+        complete:    '\u00a1Transcripci\u00f3n completa!',
+        error:       'Algo sali\u00f3 mal.',
         statusMap: {
-          'Loading model':    'Cargando modelo\u2026',
-          'Preparing audio':  'Preparando audio\u2026',
-          'Transcribing':     'Transcribiendo\u2026',
-          'Building SRT':     'Construyendo SRT\u2026',
+          'Loading model\u2026':   'Cargando modelo\u2026',
+          'Preparing audio\u2026': 'Preparando audio\u2026',
+          'Transcribing\u2026':    'Transcribiendo\u2026',
+          'Building SRT\u2026':    'Construyendo SRT\u2026',
         },
-        capSettings: 'Exportar subtítulos',
-        maxChars:    'Máx. caracteres por línea',
-        minDur:      'Duración mínima (s)',
-        gapFr:       'Espacio entre subtítulos (frames)',
-        linesLbl:    'Líneas por subtítulo',
+        capSettings: 'Exportar subt\u00edtulos',
+        maxChars:    'M\u00e1x. car. / l\u00ednea',
+        minDur:      'Dur. m\u00ednima (s)',
+        gapFr:       'Espacio (frames)',
+        linesLbl:    'L\u00edneas',
         single:      'Una',
         double:      'Dos',
-        fpsLbl:      'Fotogramas/s',
-        genFcpxml:   'Generar FCPXML',
+        fpsLbl:      'FPS',
+        genFcpxml:   'Generar FCPXML\u2026',
         generating:  'Generando\u2026',
         openFcp:     'Abrir en Final Cut Pro',
         opening:     'Abriendo\u2026',
-        audioLang:   'Idioma del audio',
+        modelLbl:    'Modelo',
+        engOnly:     'Solo ingl\u00e9s',
+        autoDetect:  'Detecci\u00f3n autom\u00e1tica',
+        recents:     'Recientes',
+        noTrans:     'Sin transcripciones',
+        newBtn:      'Nueva transcripci\u00f3n',
+        headerNew:   'Nueva transcripci\u00f3n',
+        saveSrt:     'Guardar SRT\u2026',
+        autosaved:   'Guardado en Documentos',
+        tabFull:     'SRT completo',
+        tabSub:      'Subt\u00edtulo',
+        tabTxt:      'Texto plano',
       },
     };
 
-    function detectLang() {
-      const saved = localStorage.getItem('pt_lang');
-      if (saved) return saved;
-      return navigator.language.startsWith('es') ? 'es' : 'en';
-    }
+    let currentLang    = localStorage.getItem('st_lang') || (navigator.language.startsWith('es') ? 'es' : 'en');
+    let selectedModel  = 'whisper';
+    let selectedFile   = null;
+    let pollInterval   = null;
+    let currentJobId   = null;
+    let currentSrt     = { full: '', subtitle: '', txt: '' };
+    let transcriptMode = 'full';
 
-    let currentLang = detectLang();
+    const VIEWS = ['view-upload', 'view-processing', 'view-results'];
+    function showView(id) {
+      VIEWS.forEach(v => {
+        document.getElementById(v).classList.toggle('hidden-view', v !== id);
+      });
+    }
 
     function applyLang() {
       const t = T[currentLang];
-      localStorage.setItem('pt_lang', currentLang);
-      document.getElementById('desc-text').innerHTML  = t.desc;
-      document.getElementById('drop-title').textContent = t.dropTitle;
-      document.getElementById('drop-sub').textContent   = t.dropSub;
+      localStorage.setItem('st_lang', currentLang);
+      document.getElementById('upload-title').textContent     = t.uploadTitle;
+      document.getElementById('desc-text').innerHTML          = t.desc;
+      document.getElementById('drop-title').textContent       = t.dropTitle;
+      document.getElementById('drop-sub').textContent         = t.dropSub;
       document.getElementById('transcribe-label').textContent = t.transcribe;
-      document.getElementById('view-save-label').textContent  = t.viewSave;
-      document.getElementById('lang-toggle').textContent =
-        currentLang === 'en' ? 'EN / ES' : 'ES / EN';
+      document.getElementById('lbl-model').textContent        = t.modelLbl;
+      document.getElementById('lbl-model-hint').textContent   = selectedModel === 'whisper' ? t.autoDetect : t.engOnly;
+      document.getElementById('lang-toggle').textContent      = currentLang === 'en' ? 'EN / ES' : 'ES / EN';
+      document.getElementById('lbl-recents').textContent      = t.recents;
+      document.getElementById('sidebar-empty').textContent    = t.noTrans;
+      document.getElementById('lbl-new-btn').textContent      = t.newBtn;
       document.getElementById('cap-settings-lbl').textContent = t.capSettings;
       document.getElementById('lbl-maxchars').textContent     = t.maxChars;
       document.getElementById('lbl-mindur').textContent       = t.minDur;
@@ -549,7 +634,11 @@ MAIN_PAGE = """<!DOCTYPE html>
       document.getElementById('lbl-fps').textContent          = t.fpsLbl;
       document.getElementById('fcpxml-label').textContent     = t.genFcpxml;
       document.getElementById('openfcp-label').textContent    = t.openFcp;
-      document.getElementById('lbl-audiolang').textContent    = t.audioLang;
+      document.getElementById('lbl-autosaved').textContent    = t.autosaved;
+      document.getElementById('lbl-save-srt').textContent     = t.saveSrt;
+      document.getElementById('tab-full').textContent         = t.tabFull;
+      document.getElementById('tab-subtitle').textContent     = t.tabSub;
+      document.getElementById('tab-txt').textContent          = t.tabTxt;
     }
 
     function toggleLang() {
@@ -557,109 +646,68 @@ MAIN_PAGE = """<!DOCTYPE html>
       applyLang();
     }
 
-    function xlate(serverMsg) {
-      const map = T[currentLang].statusMap;
-      for (const [key, val] of Object.entries(map)) {
-        if (serverMsg.includes(key)) return val;
-      }
-      return serverMsg;
+    function setModel(model) {
+      selectedModel = model;
+      const aCls = 'px-3 py-1 rounded-md text-xs font-semibold transition-all bg-white shadow-sm border';
+      const iCls = 'px-3 py-1 rounded-md text-xs font-semibold transition-all';
+      const aStyle = 'color:hsl(228 30% 12%); border-color:hsl(228 18% 88%);';
+      const iStyle = 'color:hsl(228 10% 52%);';
+      const wb = document.getElementById('btn-model-whisper');
+      const pb = document.getElementById('btn-model-parakeet');
+      wb.className = model === 'whisper'  ? aCls : iCls; wb.style.cssText = model === 'whisper'  ? aStyle : iStyle;
+      pb.className = model === 'parakeet' ? aCls : iCls; pb.style.cssText = model === 'parakeet' ? aStyle : iStyle;
+      document.getElementById('lbl-model-hint').textContent = model === 'whisper' ? T[currentLang].autoDetect : T[currentLang].engOnly;
     }
 
-    // ── Drop zone wiring ────────────────────────────────────────────────────
-    let selectedFile  = null;
-    let pollInterval  = null;
-    let currentJobId  = null;    let audioLang     = 'en';
-    const dropZone  = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('file-input');
-
-    dropZone.addEventListener('dragover', e => {
-      e.preventDefault();
-      dropZone.classList.add('drag-over');
-    });
-    ['dragleave', 'dragend'].forEach(ev =>
-      dropZone.addEventListener(ev, () => dropZone.classList.remove('drag-over'))
-    );
-    dropZone.addEventListener('drop', e => {
-      e.preventDefault();
-      dropZone.classList.remove('drag-over');
-      const f = e.dataTransfer.files[0];
-      if (f) setFile(f);
-    });
-    fileInput.addEventListener('change', () => {
-      if (fileInput.files[0]) setFile(fileInput.files[0]);
-    });
-
-    function setFile(f) {
-      selectedFile = f;
-      const mb = (f.size / 1024 / 1024).toFixed(1);
-      document.getElementById('file-name-text').textContent = f.name;
-      document.getElementById('file-size-text').textContent = mb + ' MB';
+    function onFileSelected(file) {
+      if (!file) return;
+      selectedFile = file;
+      const mb = (file.size / 1048576).toFixed(1);
       document.getElementById('drop-text').classList.add('hidden');
       document.getElementById('file-name-display').classList.remove('hidden');
+      document.getElementById('file-name-display').style.display = 'flex';
+      document.getElementById('file-name-text').textContent = file.name;
+      document.getElementById('file-size-text').textContent = mb + ' MB';
       document.getElementById('transcribe-btn').disabled = false;
-      document.getElementById('download-btn').classList.add('hidden');
-      document.getElementById('download-btn').classList.remove('flex');
-      const cp = document.getElementById('caption-panel');
-      cp.classList.add('hidden');
-      cp.classList.remove('flex');
-      setStatus(null);
     }
 
-    function setAudioLang(lang) {
-      audioLang = lang;
-      const active   = 'px-3 py-1 rounded-md text-xs font-semibold transition-all duration-150 bg-white shadow-sm text-gl-fg border border-gl-border';
-      const inactive = 'px-3 py-1 rounded-md text-xs font-semibold transition-all duration-150 text-gl-muted';
-      document.getElementById('btn-lang-en').className = lang === 'en' ? active : inactive;
-      document.getElementById('btn-lang-es').className = lang === 'es' ? active : inactive;
+    const dz = document.getElementById('drop-zone');
+    dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', ()  => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault(); dz.classList.remove('drag-over');
+      const f = e.dataTransfer.files[0];
+      if (f) onFileSelected(f);
+    });
+    document.getElementById('file-input').addEventListener('change', e => {
+      if (e.target.files[0]) onFileSelected(e.target.files[0]);
+    });
+
+    function newTranscription() {
+      if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+      selectedFile = null; currentJobId = null;
+      document.getElementById('file-input').value = '';
+      document.getElementById('drop-text').classList.remove('hidden');
+      document.getElementById('file-name-display').classList.add('hidden');
+      document.getElementById('transcribe-btn').disabled = true;
+      document.getElementById('header-title').textContent = T[currentLang].headerNew;
+      setActiveSidebarItem(null);
+      showView('view-upload');
     }
 
-    // ── Status helpers ──────────────────────────────────────────────────────
-    function setStatus(msg, state = 'loading', progress = null) {
-      const area      = document.getElementById('status-area');
-      const spinner   = document.getElementById('status-spinner');
-      const check     = document.getElementById('status-check');
-      const errIcon   = document.getElementById('status-error-icon');
-      const text      = document.getElementById('status-text');
-      const barWrap   = document.getElementById('progress-bar-wrap');
-      const bar       = document.getElementById('progress-bar');
-      const progLabel = document.getElementById('progress-label');
+    function xlate(raw) { return (T[currentLang].statusMap[raw] || raw); }
 
-      if (!msg) { area.classList.add('hidden'); return; }
-      area.classList.remove('hidden');
-
-      spinner.classList.toggle('hidden', state !== 'loading');
-      check.classList.toggle('hidden',   state !== 'done');
-      errIcon.classList.toggle('hidden', state !== 'error');
-      text.textContent = msg;
-      text.className = state === 'error'
-        ? 'text-sm text-red-500 flex-1'
-        : state === 'done'
-          ? 'text-sm text-emerald-600 font-medium flex-1'
-          : 'text-sm text-gl-muted flex-1';
-
-      if (progress && state === 'loading') {
-        const pct = Math.round((progress.current / progress.total) * 100);
-        barWrap.classList.remove('hidden');
-        bar.style.width = pct + '%';
-        progLabel.textContent = progress.current + '/' + progress.total;
-        progLabel.classList.remove('hidden');
-      } else {
-        barWrap.classList.add('hidden');
-        progLabel.classList.add('hidden');
-      }
-    }
-
-    // ── Transcription ───────────────────────────────────────────────────────
     async function startTranscription() {
       if (!selectedFile) return;
-      const t   = T[currentLang];
-      const btn = document.getElementById('transcribe-btn');
-      btn.classList.add('loading');
-      setStatus(t.uploading);
+      const t = T[currentLang];
+      document.getElementById('proc-filename').textContent = selectedFile.name;
+      document.getElementById('proc-status').textContent   = t.uploading;
+      document.getElementById('proc-bar-wrap').classList.add('hidden');
+      showView('view-processing');
 
       const form = new FormData();
       form.append('file', selectedFile);
-      form.append('language', audioLang);
+      form.append('model', selectedModel);
 
       let jobId;
       try {
@@ -667,8 +715,8 @@ MAIN_PAGE = """<!DOCTYPE html>
         const data = await res.json();
         jobId = data.job_id;
       } catch (err) {
-        btn.classList.remove('loading');
-        setStatus(t.uploadFail + err.message, 'error');
+        showView('view-upload');
+        alert(t.uploadFail + err.message);
         return;
       }
 
@@ -676,92 +724,163 @@ MAIN_PAGE = """<!DOCTYPE html>
         try {
           const res  = await fetch('/status/' + jobId);
           const data = await res.json();
-
           if (data.status === 'done') {
-            clearInterval(pollInterval);
-            btn.classList.remove('loading');
-            setStatus(T[currentLang].complete, 'done');
-            const dlBtn = document.getElementById('download-btn');
-            dlBtn.onclick = () => { window.location.href = '/view/' + jobId; };
-            dlBtn.classList.remove('hidden');
-            dlBtn.classList.add('flex');
+            clearInterval(pollInterval); pollInterval = null;
             currentJobId = jobId;
-            applyLang();
-            const cp = document.getElementById('caption-panel');
-            cp.classList.remove('hidden');
-            cp.classList.add('flex');
+            const sr  = await fetch('/srt/' + jobId);
+            const sd  = await sr.json();
+            loadResultsData(sd, data.auto_save_path, jobId, data.original_filename);
+            loadHistory();
           } else if (data.status === 'error') {
-            clearInterval(pollInterval);
-            btn.classList.remove('loading');
-            setStatus(data.error || T[currentLang].error, 'error');
+            clearInterval(pollInterval); pollInterval = null;
+            showView('view-upload');
+            alert(data.error || t.error);
           } else {
-            setStatus(xlate(data.status), 'loading', data.progress || null);
+            document.getElementById('proc-status').textContent = xlate(data.status);
+            if (data.progress) {
+              const pct = Math.round((data.progress.current / data.progress.total) * 100);
+              document.getElementById('proc-bar-wrap').classList.remove('hidden');
+              document.getElementById('proc-bar').style.width = pct + '%';
+            }
           }
         } catch (_) {}
       }, 800);
     }
 
-    // ── Caption FCPXML export ───────────────────────────────────────────────
-    async function generateFcpxml() {
-      if (!currentJobId) return;
-      const t   = T[currentLang];
-      const btn = document.getElementById('fcpxml-btn');
-      const lbl = document.getElementById('fcpxml-label');
-      btn.disabled = true;
-      lbl.textContent = t.generating;
-
-      const maxChars    = parseInt(document.getElementById('sl-maxchars').value, 10);
-      const minDuration = parseFloat(document.getElementById('sl-mindur').value);
-      const gapFrames   = parseInt(document.getElementById('sl-gap').value, 10);
-      const lines       = parseInt(document.querySelector('input[name="cap-lines"]:checked').value, 10);
-      const fps         = document.getElementById('sel-fps').value;
-
-      try {
-        const result = await window.pywebview.api.save_fcpxml(
-          currentJobId, maxChars, minDuration, gapFrames, lines, fps
-        );
-        if (!result.ok && result.error && result.error !== 'Cancelled') {
-          alert((t.genFcpxml || 'Error') + ': ' + result.error);
-        }
-      } catch (err) {
-        alert((t.genFcpxml || 'Error') + ': ' + err.message);
-      } finally {
-        btn.disabled    = false;
-        lbl.textContent = t.genFcpxml;
+    function loadResultsData(srtData, autoSavePath, jobId, filename) {
+      const txt = (srtData.srt || '').trim().split(/\\n\\n+/).map(b => {
+        const ls = b.split('\\n'); return ls.slice(2).join(' ');
+      }).filter(Boolean).join('\\n\\n');
+      currentSrt = { full: srtData.srt || '', subtitle: srtData.srt_subtitle || srtData.srt || '', txt };
+      setTranscriptMode('full');
+      const badge = document.getElementById('autosave-badge');
+      if (autoSavePath) {
+        badge.classList.remove('hidden'); badge.style.display = 'flex';
+        document.getElementById('autosave-path').textContent = autoSavePath;
+      } else {
+        badge.classList.add('hidden');
       }
+      const title = filename || srtData.filename || 'Transcription';
+      document.getElementById('header-title').textContent = title;
+      showView('view-results');
+    }
+
+    function setTranscriptMode(mode) {
+      transcriptMode = mode;
+      document.getElementById('transcript-content').textContent = currentSrt[mode] || '';
+      ['full','subtitle','txt'].forEach(m => {
+        const id  = m === 'subtitle' ? 'tab-subtitle' : m === 'txt' ? 'tab-txt' : 'tab-full';
+        const btn = document.getElementById(id);
+        btn.classList.toggle('active', m === mode);
+      });
+    }
+
+    async function saveSrt() {
+      if (!currentJobId) return;
+      const mode = transcriptMode === 'full' ? 'full' : transcriptMode === 'subtitle' ? 'subtitle' : 'txt';
+      try {
+        const r = await window.pywebview.api.save_srt(currentJobId, mode);
+        if (!r.ok && r.error && r.error !== 'Cancelled') alert(r.error);
+      } catch (e) { alert(e.message); }
+    }
+
+    function captionParams() {
+      return [
+        currentJobId,
+        parseInt(document.getElementById('sl-maxchars').value, 10),
+        parseFloat(document.getElementById('sl-mindur').value),
+        parseInt(document.getElementById('sl-gap').value, 10),
+        parseInt(document.querySelector('input[name="cap-lines"]:checked').value, 10),
+        document.getElementById('sel-fps').value,
+      ];
+    }
+
+    async function generateFcpxml() {
+      const t = T[currentLang]; const btn = document.getElementById('fcpxml-btn'); const lbl = document.getElementById('fcpxml-label');
+      btn.disabled = true; lbl.textContent = t.generating;
+      try {
+        const r = await window.pywebview.api.save_fcpxml(...captionParams());
+        if (!r.ok && r.error && r.error !== 'Cancelled') alert(r.error);
+      } catch (e) { alert(e.message); }
+      finally { btn.disabled = false; lbl.textContent = t.genFcpxml; }
     }
 
     async function openInFcpx() {
-      if (!currentJobId) return;
-      const t   = T[currentLang];
-      const btn = document.getElementById('openfcp-btn');
-      const lbl = document.getElementById('openfcp-label');
-      btn.disabled = true;
-      lbl.textContent = t.opening;
-
-      const maxChars    = parseInt(document.getElementById('sl-maxchars').value, 10);
-      const minDuration = parseFloat(document.getElementById('sl-mindur').value);
-      const gapFrames   = parseInt(document.getElementById('sl-gap').value, 10);
-      const lines       = parseInt(document.querySelector('input[name="cap-lines"]:checked').value, 10);
-      const fps         = document.getElementById('sel-fps').value;
-
+      const t = T[currentLang]; const btn = document.getElementById('openfcp-btn'); const lbl = document.getElementById('openfcp-label');
+      btn.disabled = true; lbl.textContent = t.opening;
       try {
-        const result = await window.pywebview.api.open_in_fcpx(
-          currentJobId, maxChars, minDuration, gapFrames, lines, fps
-        );
-        if (!result.ok) {
-          alert((t.openFcp || 'Error') + ': ' + result.error);
-        }
-      } catch (err) {
-        alert((t.openFcp || 'Error') + ': ' + err.message);
-      } finally {
-        btn.disabled    = false;
-        lbl.textContent = t.openFcp;
-      }
+        const r = await window.pywebview.api.open_in_fcpx(...captionParams());
+        if (!r.ok) alert(r.error);
+      } catch (e) { alert(e.message); }
+      finally { btn.disabled = false; lbl.textContent = t.openFcp; }
     }
 
-    // ── Init ────────────────────────────────────────────────────────────────
+    // Sidebar
+    let sidebarHistory = [];
+
+    function relativeDate(iso) {
+      const d = new Date(iso); const now = new Date(); const diff = (now - d) / 1000;
+      if (diff < 60)    return 'Just now';
+      if (diff < 3600)  return Math.floor(diff/60) + 'm ago';
+      if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+      return d.toLocaleDateString(currentLang === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric' });
+    }
+
+    function renderSidebar(history) {
+      sidebarHistory = history;
+      const list  = document.getElementById('sidebar-list');
+      const empty = document.getElementById('sidebar-empty');
+      Array.from(list.querySelectorAll('.sidebar-item')).forEach(el => el.remove());
+      empty.style.display = history.length ? 'none' : '';
+      history.forEach(rec => {
+        const item = document.createElement('div');
+        item.className = 'sidebar-item flex items-center gap-0 rounded-lg cursor-pointer';
+        item.setAttribute('data-id', rec.id);
+        item.innerHTML = `
+          <div class="item-bar mr-2" style="height:36px;min-height:36px;"></div>
+          <div class="py-2 pr-2 min-w-0 flex-1">
+            <p class="text-xs font-medium truncate" style="color:hsl(228 15% 76%);" title="${rec.filename}">${rec.filename}</p>
+            <p class="text-xs mt-0.5" style="color:hsl(228 10% 42%);">${relativeDate(rec.created_at)}&nbsp;&middot;&nbsp;${rec.model === 'whisper' ? 'W' : 'P'}</p>
+          </div>`;
+        item.addEventListener('mouseenter', () => { if (!item.classList.contains('active')) item.style.background = 'hsl(228 22% 15%)'; });
+        item.addEventListener('mouseleave', () => { if (!item.classList.contains('active')) item.style.background = ''; });
+        item.addEventListener('click', () => loadHistoryItem(rec));
+        list.insertBefore(item, empty);
+      });
+    }
+
+    function setActiveSidebarItem(id) {
+      document.querySelectorAll('.sidebar-item').forEach(el => {
+        const isActive = el.getAttribute('data-id') === id;
+        el.classList.toggle('active', isActive);
+        el.style.background = isActive ? 'hsl(228 30% 20%)' : '';
+      });
+    }
+
+    async function loadHistoryItem(rec) {
+      setActiveSidebarItem(rec.id);
+      currentJobId = rec.id;
+      try {
+        const res = await fetch('/srt/' + rec.id);
+        if (!res.ok) return;
+        const data = await res.json();
+        loadResultsData(data, data.auto_save_path, rec.id, rec.filename);
+      } catch (_) {}
+    }
+
+    async function loadHistory() {
+      try {
+        const res  = await fetch('/history');
+        const data = await res.json();
+        renderSidebar(data);
+        if (currentJobId) setActiveSidebarItem(currentJobId);
+      } catch (_) {}
+    }
+
+    // Init
     applyLang();
+    loadHistory();
+    showView('view-upload');
   </script>
 </body>
 </html>"""

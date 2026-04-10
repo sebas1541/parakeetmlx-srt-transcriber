@@ -30,18 +30,21 @@ def build_server():
         return MAIN_PAGE
 
     @api.post("/transcribe")
-    async def transcribe(file: UploadFile = File(...), language: str = Form("en")):
+    async def transcribe(file: UploadFile = File(...), model: str = Form("whisper")):
         suffix = Path(file.filename).suffix or ".tmp"
         tmp    = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
         tmp.write(await file.read())
         tmp.close()
 
         job_id           = str(uuid.uuid4())
-        state.jobs[job_id] = {"status": "queued", "srt": None, "error": None, "progress": None}
+        state.jobs[job_id] = {
+            "status": "queued", "srt": None, "error": None, "progress": None,
+            "original_filename": file.filename or "audio",
+        }
 
         threading.Thread(
             target=transcribe_worker,
-            args=(job_id, tmp.name, language),
+            args=(job_id, tmp.name, model),
             daemon=True,
         ).start()
 
@@ -52,7 +55,54 @@ def build_server():
         job = state.jobs.get(job_id)
         if not job:
             return JSONResponse({"status": "not_found"}, status_code=404)
-        return JSONResponse({"status": job["status"], "error": job.get("error"), "progress": job.get("progress")})
+        return JSONResponse({
+            "status":          job["status"],
+            "error":           job.get("error"),
+            "progress":        job.get("progress"),
+            "auto_save_path":  job.get("auto_save_path"),
+            "original_filename": job.get("original_filename"),
+        })
+
+    @api.get("/history")
+    async def history():
+        hist_file = state.DOCS_DIR / "history.json"
+        if not hist_file.exists():
+            return JSONResponse([])
+        try:
+            data = json.loads(hist_file.read_text(encoding="utf-8"))
+            return JSONResponse(data)
+        except Exception:
+            return JSONResponse([])
+
+    @api.get("/srt/{job_id}")
+    async def get_srt(job_id: str):
+        """Return SRT + subtitle SRT for a job. Falls back to disk if not in memory."""
+        job = state.jobs.get(job_id)
+        if job and job.get("srt"):
+            return JSONResponse({
+                "srt":          job["srt"],
+                "srt_subtitle": job.get("srt_subtitle", ""),
+                "filename":     job.get("original_filename", ""),
+                "auto_save_path": job.get("auto_save_path", ""),
+            })
+        # Try to load from history on disk
+        hist_file = state.DOCS_DIR / "history.json"
+        if hist_file.exists():
+            try:
+                history = json.loads(hist_file.read_text(encoding="utf-8"))
+                for rec in history:
+                    if rec.get("id") == job_id:
+                        srt_path = Path(rec["srt_path"])
+                        if srt_path.exists():
+                            return JSONResponse({
+                                "srt":          srt_path.read_text(encoding="utf-8"),
+                                "srt_subtitle": "",
+                                "filename":     rec.get("filename", ""),
+                                "auto_save_path": rec.get("srt_path", ""),
+                            })
+            except Exception:
+                pass
+        return JSONResponse({"error": "Not found"}, status_code=404)
 
     @api.get("/view/{job_id}", response_class=HTMLResponse)
     async def view(job_id: str):
