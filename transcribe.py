@@ -7,11 +7,43 @@ from pathlib import Path
 
 import state
 
-_model        = None
-_WHISPER_REPO = "mlx-community/whisper-large-v3-turbo"
+_model         = None
+_WHISPER_REPO  = "mlx-community/whisper-large-v3-turbo"
+_PARAKEET_REPO = "mlx-community/parakeet-tdt-0.6b-v3"
 
 _CONVERT_EXTS = {".mp4", ".mov", ".mp3", ".m4a", ".flac", ".ogg", ".aac",
                  ".avi", ".mkv", ".webm"}
+
+
+# ── Model download helpers ────────────────────────────────────────────────────
+
+def _is_model_cached(repo_id: str) -> bool:
+    """Return True if the HuggingFace model repo is already in the local cache."""
+    try:
+        import huggingface_hub
+        cache     = Path(huggingface_hub.constants.HF_HUB_CACHE)
+        folder    = "models--" + repo_id.replace("/", "--")
+        snapshots = cache / folder / "snapshots"
+        return snapshots.exists() and any(snapshots.iterdir())
+    except Exception:
+        return False
+
+
+def _ensure_model_downloaded(repo_id: str, job: dict) -> None:
+    """Pre-download a HuggingFace model with per-file progress if not already cached."""
+    if _is_model_cached(repo_id):
+        return
+    try:
+        import huggingface_hub
+        files = sorted(huggingface_hub.list_repo_files(repo_id))
+        total = len(files)
+        job["status"] = "Downloading model\u2026"
+        for i, filename in enumerate(files, 1):
+            job["progress"] = {"current": i, "total": total}
+            huggingface_hub.hf_hub_download(repo_id=repo_id, filename=filename)
+        job["progress"] = None
+    except Exception:
+        pass  # fall back to the library's own download on any failure
 
 
 # ── SRT helpers ───────────────────────────────────────────────────────────────
@@ -248,12 +280,14 @@ def transcribe_worker(job_id: str, src_path: str, model: str = "whisper") -> Non
             audio_path = src_path
 
         if model == "parakeet":
+            _ensure_model_downloaded(_PARAKEET_REPO, job)
             job["status"] = "Loading model\u2026"
             if _model is None:
                 from parakeet_mlx import from_pretrained
-                _model = from_pretrained("mlx-community/parakeet-tdt-0.6b-v3")
+                _model = from_pretrained(_PARAKEET_REPO)
             sentences = _transcribe_chunked(_model, audio_path, job)
         else:
+            _ensure_model_downloaded(_WHISPER_REPO, job)
             sentences = _transcribe_whisper(audio_path, job)
 
         if not sentences:

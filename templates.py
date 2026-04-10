@@ -408,6 +408,7 @@ MAIN_PAGE = """<!DOCTYPE html>
         <div id="proc-bar-wrap" class="hidden w-44 h-1 rounded-full overflow-hidden" style="background:hsl(228 18% 90%);">
           <div id="proc-bar" class="h-full rounded-full transition-all duration-300" style="background:hsl(228 88% 62%); width:0%;"></div>
         </div>
+        <p id="proc-download-note" class="hidden text-xs text-center" style="color:hsl(228 10% 55%); max-width:270px; line-height:1.5;"></p>
       </div>
 
       <!-- VIEW: RESULTS -->
@@ -521,6 +522,7 @@ MAIN_PAGE = """<!DOCTYPE html>
         complete:    'Transcription complete!',
         error:       'Something went wrong.',
         statusMap: {
+          'Downloading model\u2026': 'Downloading model\u2026',
           'Loading model\u2026':   'Loading model\u2026',
           'Preparing audio\u2026': 'Preparing audio\u2026',
           'Transcribing\u2026':    'Transcribing\u2026',
@@ -548,6 +550,7 @@ MAIN_PAGE = """<!DOCTYPE html>
         saveSrt:     'Save SRT\u2026',
         saveTxt:     'Save TXT\u2026',
         autosaved:   'Auto-saved to Documents',
+        downloadNote: 'First-time setup \u2014 downloading the AI model (~2\u00a0GB). This only happens once.',
         tabFull:     'Full SRT',
         tabSub:      'Subtitle',
         tabTxt:      'Plain Text',
@@ -563,6 +566,7 @@ MAIN_PAGE = """<!DOCTYPE html>
         complete:    '\u00a1Transcripci\u00f3n completa!',
         error:       'Algo sali\u00f3 mal.',
         statusMap: {
+          'Downloading model\u2026': 'Descargando modelo\u2026',
           'Loading model\u2026':   'Cargando modelo\u2026',
           'Preparing audio\u2026': 'Preparando audio\u2026',
           'Transcribing\u2026':    'Transcribiendo\u2026',
@@ -590,6 +594,7 @@ MAIN_PAGE = """<!DOCTYPE html>
         saveSrt:     'Guardar SRT\u2026',
         saveTxt:     'Guardar TXT\u2026',
         autosaved:   'Guardado en Documentos',
+        downloadNote: 'Configuraci\u00f3n inicial \u2014 descargando el modelo de IA (~2\u00a0GB). Solo ocurre una vez.',
         tabFull:     'SRT completo',
         tabSub:      'Subt\u00edtulo',
         tabTxt:      'Texto plano',
@@ -635,6 +640,7 @@ MAIN_PAGE = """<!DOCTYPE html>
       document.getElementById('fcpxml-label').textContent     = t.genFcpxml;
       document.getElementById('openfcp-label').textContent    = t.openFcp;
       document.getElementById('lbl-autosaved').textContent    = t.autosaved;
+      document.getElementById('proc-download-note').textContent = t.downloadNote;
       document.getElementById('lbl-save-srt').textContent     = t.saveSrt;
       document.getElementById('tab-full').textContent         = t.tabFull;
       document.getElementById('tab-subtitle').textContent     = t.tabSub;
@@ -703,6 +709,7 @@ MAIN_PAGE = """<!DOCTYPE html>
       document.getElementById('proc-filename').textContent = selectedFile.name;
       document.getElementById('proc-status').textContent   = t.uploading;
       document.getElementById('proc-bar-wrap').classList.add('hidden');
+      document.getElementById('proc-download-note').classList.add('hidden');
       showView('view-processing');
 
       const form = new FormData();
@@ -737,6 +744,8 @@ MAIN_PAGE = """<!DOCTYPE html>
             alert(data.error || t.error);
           } else {
             document.getElementById('proc-status').textContent = xlate(data.status);
+            const isDownloading = data.status === 'Downloading model\u2026';
+            document.getElementById('proc-download-note').classList.toggle('hidden', !isDownloading);
             if (data.progress) {
               const pct = Math.round((data.progress.current / data.progress.total) * 100);
               document.getElementById('proc-bar-wrap').classList.remove('hidden');
